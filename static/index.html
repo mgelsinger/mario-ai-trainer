@@ -1,0 +1,1958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mario AI Trainer</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+<script crossorigin src="https://cdn.jsdelivr.net/npm/recharts@2.5.0/umd/Recharts.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-primary: #07080a;
+  --bg-secondary: #0d1117;
+  --bg-card: #161b22;
+  --bg-input: #1c2333;
+  --border: #30363d;
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-dim: #6e7681;
+  --green: #39d353;
+  --green-dim: #1a7f37;
+  --blue: #58a6ff;
+  --blue-dim: #1f6feb;
+  --gold: #e3b341;
+  --red: #f85149;
+  --orange: #d29922;
+  --purple: #bc8cff;
+  --neon-green: #00ff41;
+  --neon-blue: #00d4ff;
+}
+
+body {
+  font-family: 'Courier New', monospace;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background:
+    linear-gradient(rgba(0,255,65,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,65,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app { position: relative; z-index: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+/* Top Bar */
+.top-bar {
+  display: flex;
+  align-items: center;
+  padding: 12px 20px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  gap: 16px;
+  flex-shrink: 0;
+}
+.top-bar h1 {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 14px;
+  color: var(--neon-green);
+  text-shadow: 0 0 10px rgba(0,255,65,0.5);
+  white-space: nowrap;
+}
+.badges { display: flex; gap: 8px; margin-left: auto; }
+.badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.badge-green { background: rgba(57,211,83,0.15); color: var(--green); border: 1px solid var(--green-dim); }
+.badge-red { background: rgba(248,81,73,0.15); color: var(--red); border: 1px solid #da3633; }
+.badge-blue { background: rgba(88,166,255,0.15); color: var(--blue); border: 1px solid var(--blue-dim); }
+.badge-gold { background: rgba(227,179,65,0.15); color: var(--gold); border: 1px solid #9e6a03; }
+.badge-gray { background: rgba(139,148,158,0.15); color: var(--text-secondary); border: 1px solid var(--border); }
+
+/* Layout */
+.main-layout { display: flex; flex: 1; overflow: hidden; }
+
+/* Sidebar */
+.sidebar {
+  width: 340px;
+  min-width: 340px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Content */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+/* Panels */
+.panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.panel-header {
+  padding: 10px 14px;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 9px;
+  color: var(--neon-blue);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+}
+.panel-header:hover { background: rgba(255,255,255,0.02); }
+.panel-body { padding: 12px 14px; }
+.panel-body.collapsed { display: none; }
+
+/* System Health */
+.health-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 12px;
+}
+.health-label { color: var(--text-secondary); }
+.health-value { font-weight: bold; }
+.health-pass { color: var(--green); }
+.health-fail { color: var(--red); }
+.health-warn { color: var(--gold); }
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  width: 100%;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-start { background: var(--green-dim); color: white; }
+.btn-start:hover:not(:disabled) { background: var(--green); color: black; }
+.btn-stop { background: #da3633; color: white; }
+.btn-stop:hover:not(:disabled) { background: var(--red); }
+.btn-resume { background: var(--blue-dim); color: white; }
+.btn-resume:hover:not(:disabled) { background: var(--blue); }
+
+/* Training Progress Bar */
+.progress-wrap {
+  margin-top: 4px;
+}
+.progress-bar-outer {
+  width: 100%;
+  height: 8px;
+  background: var(--bg-input);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.progress-bar-inner {
+  height: 100%;
+  background: linear-gradient(90deg, var(--green-dim), var(--green));
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+.progress-text {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+}
+.btn-small {
+  padding: 6px 12px;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  width: auto;
+}
+
+/* Param Controls */
+.param-group { margin-bottom: 10px; }
+.param-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+.param-name { color: var(--text-primary); font-weight: bold; }
+.param-value { color: var(--neon-green); font-family: 'Courier New', monospace; }
+.param-desc {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+input[type="range"] {
+  width: 100%;
+  height: 4px;
+  -webkit-appearance: none;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--neon-green);
+  cursor: pointer;
+}
+input[type="range"]:disabled::-webkit-slider-thumb { background: var(--text-dim); }
+select {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+}
+select:disabled { opacity: 0.5; }
+
+/* Stats Cards */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  text-align: center;
+}
+.stat-label {
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+.stat-value {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 16px;
+}
+.stat-green { color: var(--neon-green); text-shadow: 0 0 8px rgba(0,255,65,0.4); }
+.stat-blue { color: var(--neon-blue); text-shadow: 0 0 8px rgba(0,212,255,0.4); }
+.stat-gold { color: var(--gold); text-shadow: 0 0 8px rgba(227,179,65,0.4); }
+.stat-red { color: var(--red); }
+.stat-purple { color: var(--purple); text-shadow: 0 0 8px rgba(188,140,255,0.4); }
+.stat-subtitle { font-size: 9px; color: var(--text-dim); margin-top: 4px; line-height: 1.3; }
+
+/* Charts Grid */
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.chart-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+.chart-title {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 9px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+/* Replay Viewer */
+.replay-viewer {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+.replay-title {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 11px;
+  color: var(--neon-blue);
+  margin-bottom: 12px;
+}
+.replay-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.replay-chip {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  cursor: pointer;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  transition: all 0.15s;
+}
+.replay-chip:hover { border-color: var(--blue); color: var(--blue); }
+.replay-chip.active { background: var(--blue-dim); border-color: var(--blue); color: white; }
+.replay-canvas-wrap {
+  display: flex;
+  justify-content: center;
+  background: #000;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  min-height: 240px;
+  align-items: center;
+}
+.replay-canvas-wrap canvas, .replay-canvas-wrap img {
+  image-rendering: pixelated;
+  max-width: 100%;
+  height: 480px;
+}
+.replay-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.replay-controls input[type="range"] { flex: 1; }
+.replay-speed {
+  display: flex;
+  gap: 4px;
+}
+.speed-btn {
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border-radius: 4px;
+  font-size: 10px;
+  cursor: pointer;
+}
+.speed-btn.active { background: var(--blue-dim); border-color: var(--blue); color: white; }
+
+/* Best replay chip */
+.replay-chip.best { border-color: var(--gold); color: var(--gold); background: rgba(227,179,65,0.1); }
+.replay-chip.best.active { background: rgba(227,179,65,0.25); }
+
+/* Checkpoints Panel */
+.checkpoints-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+.checkpoints-title {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 11px;
+  color: var(--neon-blue);
+  margin-bottom: 12px;
+}
+.checkpoint-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  font-size: 11px;
+  background: var(--bg-input);
+}
+.checkpoint-row.is-best { border-color: var(--gold); background: rgba(227,179,65,0.05); }
+.checkpoint-name { color: var(--text-primary); font-weight: bold; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.checkpoint-meta { color: var(--text-secondary); font-size: 10px; }
+.checkpoint-actions { display: flex; gap: 6px; }
+.snapshot-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.snapshot-input {
+  flex: 1;
+  padding: 6px 10px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+}
+
+/* Log Console */
+.log-console {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.log-console-header {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 9px;
+  color: var(--text-secondary);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.log-content {
+  height: 200px;
+  overflow-y: auto;
+  padding: 10px 14px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+.log-content div { white-space: pre-wrap; word-break: break-all; }
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+  color: var(--text-dim);
+  text-align: center;
+}
+.empty-state h2 {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+.empty-state p { font-size: 13px; max-width: 400px; line-height: 1.6; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* Warning box */
+.warning-box {
+  background: rgba(210,153,34,0.1);
+  border: 1px solid var(--orange);
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 11px;
+  color: var(--gold);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+/* Live Play Panel */
+.live-play-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+.live-play-title {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 11px;
+  color: var(--neon-green);
+  margin-bottom: 12px;
+}
+.live-play-controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.live-play-controls select {
+  width: auto;
+  min-width: 120px;
+  flex: 1;
+}
+.live-play-controls .btn { width: auto; min-width: 100px; flex: 0; }
+.live-play-field { display: flex; flex-direction: column; gap: 2px; }
+.live-play-field label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+.live-play-canvas-wrap {
+  display: flex;
+  justify-content: center;
+  background: #000;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  min-height: 240px;
+  align-items: center;
+  position: relative;
+}
+.live-play-canvas-wrap canvas {
+  image-rendering: pixelated;
+  max-width: 100%;
+  height: 480px;
+}
+.live-stats {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  padding: 8px 0;
+}
+.live-stat { text-align: center; }
+.live-stat-label { font-size: 9px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+.live-stat-value { font-family: 'Press Start 2P', cursive; font-size: 12px; color: var(--neon-green); }
+.play-result {
+  text-align: center;
+  padding: 12px;
+  border-radius: 6px;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+.play-result.win {
+  background: rgba(57,211,83,0.15);
+  border: 1px solid var(--green-dim);
+  color: var(--green);
+}
+.play-result.lose {
+  background: rgba(248,81,73,0.15);
+  border: 1px solid #da3633;
+  color: var(--red);
+}
+.play-result .result-stats {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  margin-top: 6px;
+  color: var(--text-secondary);
+}
+
+/* Level Progression */
+.level-grid-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+.level-grid-title {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 11px;
+  color: var(--neon-blue);
+  margin-bottom: 12px;
+}
+.level-grid {
+  display: grid;
+  grid-template-columns: auto repeat(4, 1fr);
+  gap: 4px;
+}
+.level-grid-header {
+  font-size: 9px;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 4px;
+  font-family: 'Press Start 2P', cursive;
+}
+.level-cell {
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  text-align: center;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-dim);
+  transition: all 0.15s;
+}
+.level-cell:hover { border-color: var(--blue); }
+.level-cell.trained { background: rgba(88,166,255,0.1); border-color: var(--blue-dim); color: var(--blue); }
+.level-cell.completed { background: rgba(57,211,83,0.1); border-color: var(--green-dim); color: var(--green); }
+.level-cell.current { border-color: var(--gold); box-shadow: 0 0 6px rgba(227,179,65,0.3); }
+.level-cell-info { font-size: 8px; color: var(--text-dim); margin-top: 2px; }
+
+/* Level badge on checkpoints */
+.level-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: bold;
+  background: rgba(88,166,255,0.15);
+  color: var(--blue);
+  border: 1px solid var(--blue-dim);
+  margin-left: 6px;
+}
+
+/* Next level banner */
+.next-level-banner {
+  background: rgba(57,211,83,0.1);
+  border: 1px solid var(--green-dim);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+.next-level-banner .banner-text {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 10px;
+  color: var(--green);
+  margin-bottom: 8px;
+}
+.next-level-banner .btn { width: auto; display: inline-flex; }
+
+@media (max-width: 1200px) {
+  .charts-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .main-layout { flex-direction: column; }
+  .sidebar { width: 100%; min-width: 100%; max-height: 50vh; }
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+"use strict";
+var e = React.createElement;
+var useState = React.useState;
+var useEffect = React.useEffect;
+var useRef = React.useRef;
+var useCallback = React.useCallback;
+
+// Recharts components
+var AreaChart = Recharts.AreaChart;
+var Area = Recharts.Area;
+var LineChart = Recharts.LineChart;
+var Line = Recharts.Line;
+var ScatterChart = Recharts.ScatterChart;
+var Scatter = Recharts.Scatter;
+var XAxis = Recharts.XAxis;
+var YAxis = Recharts.YAxis;
+var CartesianGrid = Recharts.CartesianGrid;
+var Tooltip = Recharts.Tooltip;
+var ResponsiveContainer = Recharts.ResponsiveContainer;
+var ComposedChart = Recharts.ComposedChart;
+var ReferenceLine = Recharts.ReferenceLine;
+
+// --- HYPERPARAMETER DEFINITIONS ---
+var PARAM_SECTIONS = [
+  {
+    title: "NEURAL NETWORK",
+    params: [
+      { key: "learning_rate", name: "Learning Rate", min: 0.00001, max: 0.01, step: 0.00001, default: 0.0001,
+        format: function(v) { return v.toExponential(1); },
+        desc: "How big of a step the AI takes when updating its brain. Too high = chaotic learning, too low = painfully slow progress." },
+      { key: "lr_annealing", name: "LR Schedule", type: "select",
+        options: [
+          { value: "linear", label: "Linear Annealing (Recommended)" },
+          { value: "constant", label: "Constant" },
+        ],
+        default: "linear",
+        desc: "Linear annealing gradually reduces the learning rate to zero, preventing wild updates late in training and improving stability." },
+      { key: "batch_size", name: "Batch Size", min: 16, max: 512, step: 16, default: 64,
+        desc: "How many experiences the AI looks at simultaneously during each learning step. Bigger = more stable, but needs more GPU memory." },
+      { key: "n_epochs", name: "Epochs Per Update", min: 1, max: 30, step: 1, default: 10,
+        desc: "How many times the AI re-studies the same batch of experiences. 10 is proven to work well for Mario. Going much higher risks overfitting per rollout." },
+      { key: "n_steps", name: "Steps Per Update", min: 64, max: 4096, step: 64, default: 512,
+        desc: "How many game steps the AI plays before stopping to learn from the experience. More steps = more stable but slower updates." },
+    ]
+  },
+  {
+    title: "PPO ALGORITHM",
+    params: [
+      { key: "gamma", name: "Discount Factor", min: 0.8, max: 0.999, step: 0.001, default: 0.9,
+        desc: "How much the AI values future rewards vs immediate ones. 0.9 works best for Mario \u2014 it's a reactive game where you need to respond to what's right in front of you." },
+      { key: "gae_lambda", name: "GAE Lambda", min: 0.8, max: 1.0, step: 0.01, default: 0.95,
+        desc: "Balances bias vs variance in advantage estimation. Think of it as how far ahead the AI looks when deciding if an action was good." },
+      { key: "clip_range", name: "PPO Clip Range", min: 0.05, max: 0.5, step: 0.01, default: 0.2,
+        desc: "Limits how much the AI can change its behavior in a single update. This is PPO's key trick \u2014 prevents catastrophic unlearning." },
+      { key: "ent_coef", name: "Entropy Bonus", min: 0.0, max: 0.1, step: 0.001, default: 0.01,
+        desc: "Rewards the AI for trying new things. 0.01 is the proven sweet spot for Mario. Too high = erratic behavior, too low = gets stuck in ruts." },
+      { key: "vf_coef", name: "Value Function Weight", min: 0.1, max: 1.0, step: 0.05, default: 0.5,
+        desc: "How much the AI focuses on predicting future rewards vs picking good actions. Usually fine at 0.5." },
+      { key: "max_grad_norm", name: "Gradient Clipping", min: 0.1, max: 2.0, step: 0.1, default: 0.5,
+        desc: "Caps the size of learning updates to prevent the AI from making wild swings. Like a speed limit for learning." },
+    ]
+  },
+  {
+    title: "ENVIRONMENT",
+    params: [
+      { key: "world", name: "World", min: 1, max: 8, step: 1, default: 1, desc: "Which world to play (1-8)." },
+      { key: "stage", name: "Stage", min: 1, max: 4, step: 1, default: 1, desc: "Which stage within the world (1-4)." },
+      { key: "movement_type", name: "Movement Complexity", type: "select",
+        options: [
+          { value: "right_only", label: "Right Only (5 actions)" },
+          { value: "simple", label: "Simple (7 actions)" },
+          { value: "complex", label: "Complex (12 actions)" },
+        ],
+        default: "right_only",
+        desc: "How many different actions Mario can take. 'Right Only' is easiest to learn. 'Complex' is full controls." },
+      { key: "skip_frames", name: "Frame Skip", min: 1, max: 8, step: 1, default: 4,
+        desc: "How many game frames pass per AI decision. 4 means the AI decides every 4th frame \u2014 enough for good control without overthinking." },
+      { key: "frame_stack", name: "Frame Stack", min: 1, max: 8, step: 1, default: 4,
+        desc: "How many consecutive frames the AI sees at once. This gives it a sense of motion \u2014 like seeing a flipbook vs a photo." },
+      { key: "n_envs", name: "Parallel Environments", min: 1, max: 16, step: 1, default: 8,
+        desc: "Number of Mario games running simultaneously. 8 is recommended \u2014 decorrelates training samples and prevents collapse. More needs more CPU/RAM." },
+    ]
+  },
+  {
+    title: "REWARD SHAPING",
+    params: [
+      { key: "progress_weight", name: "Progress Reward", min: 0.0, max: 5.0, step: 0.1, default: 1.0,
+        desc: "Multiplier on x-position progress per step. 1.0 is well-tested. Higher makes Mario sprint recklessly." },
+      { key: "death_penalty", name: "Death Penalty", min: 0, max: 50, step: 1, default: 15,
+        desc: "Penalty for dying. 15 matches the built-in env reward scale. Much higher makes Mario too timid to explore." },
+      { key: "flag_bonus", name: "Flag Completion Bonus", min: 0, max: 50, step: 1, default: 15,
+        desc: "Bonus for reaching the flagpole. Helps the agent learn to finish the level instead of wandering near the end." },
+      { key: "reward_clip", name: "Reward Clipping", min: 1, max: 50, step: 1, default: 15,
+        desc: "Clips reward per step to [-N, N]. Prevents extreme values from destabilizing training. 15 matches the built-in env scale." },
+      { key: "time_penalty", name: "Time Penalty", min: 0.0, max: 1.0, step: 0.01, default: 0.0,
+        desc: "Penalty per decision step. Default 0 because standing still already gives 0 progress reward. Increase only if Mario stalls." },
+    ]
+  },
+  {
+    title: "TRAINING RUN",
+    params: [
+      { key: "total_timesteps", name: "Total Training Steps", min: 100000, max: 10000000, step: 100000, default: 5000000,
+        format: function(v) { return (v/1000000).toFixed(1) + "M"; },
+        desc: "Total game steps to train for. 1M = initial testing, 5M = reliable level completion, 10M = near-optimal play." },
+      { key: "record_interval", name: "Record Interval", min: 1, max: 100, step: 1, default: 10,
+        desc: "Record a replay every N episodes. Lower = more replays but slightly slower training." },
+    ]
+  }
+];
+
+// --- COMPONENTS ---
+
+function Badge(props) {
+  return e("span", { className: "badge badge-" + (props.color || "gray") }, props.children);
+}
+
+function TopBar(props) {
+  var connColor = props.connected ? "green" : "red";
+  var connText = props.connected ? "CONNECTED" : "DISCONNECTED";
+  var trainColor = props.isTraining ? "gold" : "gray";
+  var trainText = props.isTraining ? "TRAINING" : "IDLE";
+  var deviceColor = props.device === "cuda" ? "green" : props.device === "mps" ? "blue" : "gray";
+
+  return e("div", { className: "top-bar" },
+    e("h1", null, "MARIO AI TRAINER"),
+    e("div", { className: "badges" },
+      e(Badge, { color: connColor }, connText),
+      e(Badge, { color: trainColor }, trainText),
+      e(Badge, { color: deviceColor }, props.device.toUpperCase())
+    )
+  );
+}
+
+function HealthPanel(props) {
+  var sys = props.system;
+  var collapsed = props.collapsed;
+
+  if (!sys) {
+    return e("div", { className: "panel" },
+      e("div", { className: "panel-header", onClick: props.onToggle }, "SYSTEM HEALTH", e("span", null, collapsed ? "+" : "-")),
+      !collapsed && e("div", { className: "panel-body" },
+        e("div", { className: "health-row" },
+          e("span", { className: "health-label" }, "Loading...")))
+    );
+  }
+
+  function row(label, ok, text) {
+    var cls = ok === true ? "health-pass" : ok === false ? "health-fail" : "health-warn";
+    return e("div", { className: "health-row", key: label },
+      e("span", { className: "health-label" }, label),
+      e("span", { className: "health-value " + cls }, text)
+    );
+  }
+
+  var rows = [
+    row("GPU", sys.gpu.available, sys.gpu.available ? sys.gpu.name : "Not found"),
+    row("VRAM", sys.gpu.available, sys.gpu.available ? sys.gpu.vram_free_mb + " / " + sys.gpu.vram_total_mb + " MB" : "N/A"),
+    row("CUDA", sys.cuda.available, sys.cuda.available ? "v" + sys.cuda.version : "No"),
+    row("cuDNN", sys.cudnn.available, sys.cudnn.available ? "Yes" : "No"),
+    row("CPU", true, sys.cpu.cores + "C / " + sys.cpu.threads + "T"),
+    row("RAM", sys.ram.available_gb > 4, sys.ram.available_gb + " / " + sys.ram.total_gb + " GB"),
+  ];
+
+  // Dependencies
+  Object.keys(sys.dependencies).forEach(function(dep) {
+    rows.push(row(dep, sys.dependencies[dep], sys.dependencies[dep] ? "OK" : "MISSING"));
+  });
+
+  var warnings = (sys.warnings || []).map(function(w, i) {
+    return e("div", { key: i, className: "warning-box" }, w);
+  });
+
+  return e("div", { className: "panel" },
+    e("div", { className: "panel-header", onClick: props.onToggle }, "SYSTEM HEALTH",
+      e("span", null, collapsed ? "+" : "\u2212")),
+    !collapsed && e("div", { className: "panel-body" }, rows, warnings)
+  );
+}
+
+function ParamSlider(props) {
+  var p = props.param;
+  var val = props.value;
+  var displayVal = p.format ? p.format(val) : (Number.isInteger(p.step) ? val : val.toFixed(Math.max(0, -Math.floor(Math.log10(p.step)))));
+
+  return e("div", { className: "param-group" },
+    e("div", { className: "param-label" },
+      e("span", { className: "param-name" }, p.name),
+      e("span", { className: "param-value" }, displayVal)
+    ),
+    e("div", { className: "param-desc" }, p.desc),
+    e("input", {
+      type: "range",
+      min: p.min,
+      max: p.max,
+      step: p.step,
+      value: val,
+      disabled: props.disabled,
+      onChange: function(ev) { props.onChange(p.key, parseFloat(ev.target.value)); }
+    })
+  );
+}
+
+function ParamSelect(props) {
+  var p = props.param;
+  return e("div", { className: "param-group" },
+    e("div", { className: "param-label" },
+      e("span", { className: "param-name" }, p.name)
+    ),
+    e("div", { className: "param-desc" }, p.desc),
+    e("select", {
+      value: props.value,
+      disabled: props.disabled,
+      onChange: function(ev) { props.onChange(p.key, ev.target.value); }
+    }, p.options.map(function(opt) {
+      return e("option", { key: opt.value, value: opt.value }, opt.label);
+    }))
+  );
+}
+
+function ParamSection(props) {
+  var section = props.section;
+  var collapsed = props.collapsed;
+
+  return e("div", { className: "panel" },
+    e("div", { className: "panel-header", onClick: props.onToggle }, section.title,
+      e("span", null, collapsed ? "+" : "\u2212")),
+    !collapsed && e("div", { className: "panel-body" },
+      section.params.map(function(p) {
+        if (p.type === "select") {
+          return e(ParamSelect, { key: p.key, param: p, value: props.values[p.key], disabled: props.disabled, onChange: props.onChange });
+        }
+        return e(ParamSlider, { key: p.key, param: p, value: props.values[p.key], disabled: props.disabled, onChange: props.onChange });
+      })
+    )
+  );
+}
+
+function TrainingProgress(props) {
+  var current = props.timestep || 0;
+  var total = props.totalTimesteps || 1;
+  var pct = Math.min(100, (current / total) * 100);
+
+  function fmtSteps(n) {
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
+    if (n >= 1000) return (n / 1000).toFixed(0) + "K";
+    return "" + n;
+  }
+
+  return e("div", { className: "progress-wrap" },
+    e("div", { className: "progress-bar-outer" },
+      e("div", { className: "progress-bar-inner", style: { width: pct.toFixed(1) + "%" } })
+    ),
+    e("div", { className: "progress-text" },
+      e("span", null, fmtSteps(current) + " / " + fmtSteps(total)),
+      e("span", null, pct.toFixed(1) + "%")
+    )
+  );
+}
+
+function Sidebar(props) {
+  var collapsedSections = props.collapsedSections;
+  var hasCheckpoint = props.lastCheckpoint != null;
+
+  return e("div", { className: "sidebar" },
+    e(HealthPanel, {
+      system: props.system,
+      collapsed: collapsedSections["health"],
+      onToggle: function() { props.toggleSection("health"); }
+    }),
+    e("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } },
+      e("button", {
+        className: "btn btn-start",
+        disabled: props.isTraining,
+        onClick: props.onStart,
+        style: { flex: hasCheckpoint && !props.isTraining ? "1" : "1" }
+      }, "START NEW"),
+      hasCheckpoint && !props.isTraining && e("button", {
+        className: "btn btn-resume",
+        onClick: props.onResume,
+        style: { flex: "1" }
+      }, "RESUME"),
+      e("button", {
+        className: "btn btn-stop",
+        disabled: !props.isTraining,
+        onClick: props.onStop,
+        style: { flex: "1" }
+      }, "STOP")
+    ),
+    props.isTraining && e(TrainingProgress, {
+      timestep: props.currentTimestep,
+      totalTimesteps: props.totalTimesteps || props.params.total_timesteps,
+    }),
+    PARAM_SECTIONS.map(function(section, i) {
+      return e(ParamSection, {
+        key: i,
+        section: section,
+        collapsed: collapsedSections[section.title],
+        onToggle: function() { props.toggleSection(section.title); },
+        values: props.params,
+        disabled: props.isTraining,
+        onChange: props.onParamChange,
+      });
+    })
+  );
+}
+
+function StatCard(props) {
+  return e("div", { className: "stat-card" },
+    e("div", { className: "stat-label" }, props.label),
+    e("div", { className: "stat-value " + (props.colorClass || "stat-green") }, props.value),
+    props.subtitle && e("div", { className: "stat-subtitle" }, props.subtitle)
+  );
+}
+
+function formatTime(seconds) {
+  if (!seconds || seconds < 0) return "0:00";
+  var h = Math.floor(seconds / 3600);
+  var m = Math.floor((seconds % 3600) / 60);
+  var s = Math.floor(seconds % 60);
+  if (h > 0) return h + ":" + (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+  return m + ":" + (s < 10 ? "0" : "") + s;
+}
+
+var chartTheme = {
+  grid: { stroke: "#21262d", strokeDasharray: "3 3" },
+  axis: { stroke: "#30363d", fontSize: 10, fill: "#6e7681" },
+  tooltip: { backgroundColor: "#161b22", border: "1px solid #30363d", color: "#e6edf3", fontSize: 12 },
+};
+
+function RewardChart(props) {
+  var data = props.data;
+  return e("div", { className: "chart-card" },
+    e("div", { className: "chart-title" }, "AVG REWARD (100-EP)"),
+    e(ResponsiveContainer, { width: "100%", height: 200 },
+      e(AreaChart, { data: data },
+        e(CartesianGrid, chartTheme.grid),
+        e(XAxis, { dataKey: "episode", tick: chartTheme.axis, axisLine: chartTheme.axis }),
+        e(YAxis, { tick: chartTheme.axis, axisLine: chartTheme.axis }),
+        e(Tooltip, { contentStyle: chartTheme.tooltip }),
+        e(Area, { type: "monotone", dataKey: "avg_reward", stroke: "#39d353", fill: "rgba(57,211,83,0.15)", strokeWidth: 2, dot: false })
+      )
+    )
+  );
+}
+
+function XPosChart(props) {
+  var data = props.data;
+  var maxX = props.maxXPos;
+  return e("div", { className: "chart-card" },
+    e("div", { className: "chart-title" }, "X POSITION / PROGRESS"),
+    e(ResponsiveContainer, { width: "100%", height: 200 },
+      e(ComposedChart, { data: data },
+        e(CartesianGrid, chartTheme.grid),
+        e(XAxis, { dataKey: "episode", tick: chartTheme.axis, axisLine: chartTheme.axis }),
+        e(YAxis, { tick: chartTheme.axis, axisLine: chartTheme.axis }),
+        e(Tooltip, { contentStyle: chartTheme.tooltip }),
+        e(Area, { type: "monotone", dataKey: "avg_x_pos", stroke: "#58a6ff", fill: "rgba(88,166,255,0.15)", strokeWidth: 2, dot: false }),
+        maxX > 0 && e(ReferenceLine, { y: maxX, stroke: "#58a6ff", strokeDasharray: "5 5", label: { value: "Max: " + maxX, fill: "#58a6ff", fontSize: 10 } })
+      )
+    )
+  );
+}
+
+function LengthChart(props) {
+  var data = props.data;
+  return e("div", { className: "chart-card" },
+    e("div", { className: "chart-title" }, "EPISODE LENGTH"),
+    e(ResponsiveContainer, { width: "100%", height: 200 },
+      e(AreaChart, { data: data },
+        e(CartesianGrid, chartTheme.grid),
+        e(XAxis, { dataKey: "episode", tick: chartTheme.axis, axisLine: chartTheme.axis }),
+        e(YAxis, { tick: chartTheme.axis, axisLine: chartTheme.axis }),
+        e(Tooltip, { contentStyle: chartTheme.tooltip }),
+        e(Area, { type: "monotone", dataKey: "avg_length", stroke: "#e3b341", fill: "rgba(227,179,65,0.15)", strokeWidth: 2, dot: false })
+      )
+    )
+  );
+}
+
+function RewardScatterChart(props) {
+  var data = props.data;
+  return e("div", { className: "chart-card" },
+    e("div", { className: "chart-title" }, "PER-EPISODE REWARD"),
+    e(ResponsiveContainer, { width: "100%", height: 200 },
+      e(ComposedChart, { data: data },
+        e(CartesianGrid, chartTheme.grid),
+        e(XAxis, { dataKey: "episode", tick: chartTheme.axis, axisLine: chartTheme.axis }),
+        e(YAxis, { tick: chartTheme.axis, axisLine: chartTheme.axis }),
+        e(Tooltip, { contentStyle: chartTheme.tooltip }),
+        e(Scatter, { dataKey: "reward", fill: "#f85149", fillOpacity: 0.4, r: 2 }),
+        e(Line, { type: "monotone", dataKey: "avg_reward", stroke: "#39d353", strokeWidth: 2, dot: false })
+      )
+    )
+  );
+}
+
+function ReplayViewer(props) {
+  var replays = props.replays;
+  var ws = props.ws;
+  var selectedRef = useRef(null);
+  var canvasRef = useRef(null);
+  var framesRef = useRef([]);
+  var timerRef = useRef(null);
+
+  var _s1 = useState(null); var selectedEpisode = _s1[0]; var setSelectedEpisode = _s1[1];
+  var _s2 = useState([]); var frames = _s2[0]; var setFrames = _s2[1];
+  var _s3 = useState(0); var frameIdx = _s3[0]; var setFrameIdx = _s3[1];
+  var _s4 = useState(false); var playing = _s4[0]; var setPlaying = _s4[1];
+  var _s5 = useState(1); var speed = _s5[0]; var setSpeed = _s5[1];
+  var _s6 = useState(0); var totalFrames = _s6[0]; var setTotalFrames = _s6[1];
+  var _s7 = useState(false); var loading = _s7[0]; var setLoading = _s7[1];
+
+  // Keep framesRef in sync
+  useEffect(function() { framesRef.current = frames; }, [frames]);
+
+  // Handle replay WebSocket messages
+  useEffect(function() {
+    if (!props.onReplayMsg) return;
+    props.setReplayHandler(function(msg) {
+      if (msg.type === "replay_start") {
+        setTotalFrames(msg.total_frames);
+        framesRef.current = new Array(msg.total_frames).fill(null);
+        setFrames(framesRef.current);
+        setFrameIdx(0);
+        setLoading(true);
+      } else if (msg.type === "replay_frames") {
+        var newFrames = framesRef.current.slice();
+        for (var i = 0; i < msg.frames.length; i++) {
+          newFrames[msg.start_index + i] = msg.frames[i];
+        }
+        framesRef.current = newFrames;
+        setFrames(newFrames);
+      } else if (msg.type === "replay_end") {
+        setLoading(false);
+      } else if (msg.type === "replay_error") {
+        setLoading(false);
+        alert(msg.message);
+      }
+    });
+  }, []);
+
+  // Playback timer
+  useEffect(function() {
+    if (playing && frames.length > 0) {
+      var interval = 1000 / (15 * speed); // ~15 base fps for NES
+      timerRef.current = setInterval(function() {
+        setFrameIdx(function(prev) {
+          if (prev >= frames.length - 1) {
+            setPlaying(false);
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, interval);
+      return function() { clearInterval(timerRef.current); };
+    }
+    return function() { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [playing, speed, frames.length]);
+
+  // Render current frame
+  useEffect(function() {
+    if (frames.length === 0 || !frames[frameIdx]) return;
+    var canvas = canvasRef.current;
+    if (!canvas) return;
+    var img = new Image();
+    img.onload = function() {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      var ctx = canvas.getContext("2d");
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, 0, 0);
+    };
+    img.src = "data:image/jpeg;base64," + frames[frameIdx];
+  }, [frameIdx, frames]);
+
+  function loadReplay(episode) {
+    setSelectedEpisode(episode);
+    setPlaying(false);
+    setFrames([]);
+    setFrameIdx(0);
+    setLoading(true);
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "get_replay", episode: episode }));
+    }
+  }
+
+  function loadLatest() {
+    if (replays.length > 0) {
+      loadReplay(replays[replays.length - 1].episode);
+    }
+  }
+
+  var speeds = [0.5, 1, 2, 4];
+
+  return e("div", { className: "replay-viewer" },
+    e("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 } },
+      e("div", { className: "replay-title" }, "REPLAY VIEWER"),
+      e("button", { className: "btn btn-small badge-blue", onClick: loadLatest,
+        disabled: replays.length === 0 }, "LOAD LATEST")
+    ),
+    replays.length > 0
+      ? e("div", { className: "replay-chips" },
+          (function() {
+            // Show best + most recent 8 (deduped)
+            var best = replays.filter(function(r) { return r.is_best; });
+            var recent = replays.filter(function(r) { return !r.is_best; }).slice(-8);
+            var shown = best.concat(recent);
+            // Deduplicate by episode
+            var seen = {};
+            shown = shown.filter(function(r) { if (seen[r.episode]) return false; seen[r.episode] = true; return true; });
+            return shown.map(function(r) {
+              return e("span", {
+                key: r.episode,
+                className: "replay-chip" + (selectedEpisode === r.episode ? " active" : "") + (r.is_best ? " best" : ""),
+                onClick: function() { loadReplay(r.episode); }
+              }, (r.is_best ? "\u2605 " : "") + "Ep " + r.episode + " (x:" + r.x_pos + ")");
+            });
+          })()
+        )
+      : e("div", { style: { color: "var(--text-dim)", fontSize: 12, marginBottom: 12 } }, "No replays recorded yet. They will appear as training progresses."),
+    e("div", { className: "replay-canvas-wrap" },
+      frames.length > 0 && frames[frameIdx]
+        ? e("canvas", { ref: canvasRef, style: { imageRendering: "pixelated" } })
+        : e("div", { style: { color: "var(--text-dim)", fontSize: 12 } },
+            loading ? "Loading frames..." : "Select a replay to watch")
+    ),
+    frames.length > 0 && e("div", { className: "replay-controls" },
+      e("button", {
+        className: "btn btn-small badge-green",
+        onClick: function() { setPlaying(!playing); }
+      }, playing ? "PAUSE" : "PLAY"),
+      e("input", {
+        type: "range",
+        min: 0,
+        max: Math.max(0, frames.length - 1),
+        value: frameIdx,
+        onChange: function(ev) { setFrameIdx(parseInt(ev.target.value)); setPlaying(false); }
+      }),
+      e("span", { style: { fontSize: 11, color: "var(--text-secondary)", minWidth: 70, textAlign: "right" } },
+        (frameIdx + 1) + " / " + frames.length),
+      e("div", { className: "replay-speed" },
+        speeds.map(function(s) {
+          return e("span", {
+            key: s,
+            className: "speed-btn" + (speed === s ? " active" : ""),
+            onClick: function() { setSpeed(s); }
+          }, s + "x");
+        })
+      )
+    )
+  );
+}
+
+function LivePlayPanel(props) {
+  var checkpoints = props.checkpoints;
+  var canvasRef = useRef(null);
+
+  var _s1 = useState(""); var selectedCp = _s1[0]; var setSelectedCp = _s1[1];
+  var _s2 = useState(1); var playWorld = _s2[0]; var setPlayWorld = _s2[1];
+  var _s3 = useState(1); var playStage = _s3[0]; var setPlayStage = _s3[1];
+  var _s4 = useState(null); var liveStats = _s4[0]; var setLiveStats = _s4[1];
+  var _s5 = useState(null); var result = _s5[0]; var setResult = _s5[1];
+  var _s6 = useState(false); var isPlaying = _s6[0]; var setIsPlaying = _s6[1];
+  var _s7 = useState(false); var starting = _s7[0]; var setStarting = _s7[1];
+
+  // When a checkpoint is selected, auto-set world/stage from its metadata
+  function onSelectCheckpoint(cpName) {
+    setSelectedCp(cpName);
+    var cp = checkpoints.find(function(c) { return c.name === cpName; });
+    if (cp && cp.world) setPlayWorld(cp.world);
+    if (cp && cp.stage) setPlayStage(cp.stage);
+  }
+
+  // Handle play WS messages
+  useEffect(function() {
+    props.setPlayHandler(function(msg) {
+      if (msg.type === "play_frame") {
+        setIsPlaying(true);
+        setResult(null);
+        setLiveStats({ x_pos: msg.x_pos, reward: msg.reward, step: msg.step, time: msg.time });
+        // Draw frame to canvas
+        var canvas = canvasRef.current;
+        if (canvas && msg.frame) {
+          var img = new Image();
+          img.onload = function() {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            var ctx = canvas.getContext("2d");
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(img, 0, 0);
+          };
+          img.src = "data:image/jpeg;base64," + msg.frame;
+        }
+      } else if (msg.type === "play_end") {
+        setIsPlaying(false);
+        setResult(msg);
+      } else if (msg.type === "play_error") {
+        setIsPlaying(false);
+        setResult({ error: msg.message });
+      }
+    });
+  }, []);
+
+  function startPlay() {
+    if (!selectedCp) { alert("Select a checkpoint first"); return; }
+    setStarting(true);
+    setResult(null);
+    setLiveStats(null);
+    // Detect movement_type from checkpoint metadata or use current params
+    var cp = checkpoints.find(function(c) { return c.name === selectedCp; });
+    var mvType = (cp && cp.movement_type) || props.params.movement_type || "right_only";
+    fetch("/api/play/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        checkpoint_path: selectedCp,
+        world: playWorld,
+        stage: playStage,
+        movement_type: mvType,
+      }),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      setStarting(false);
+      if (data.status === "ok") {
+        setIsPlaying(true);
+      } else {
+        alert(data.message || "Failed to start play");
+      }
+    })
+    .catch(function(err) { setStarting(false); alert("Failed: " + err); });
+  }
+
+  function stopPlay() {
+    fetch("/api/play/stop", { method: "POST" })
+    .then(function(r) { return r.json(); })
+    .catch(function() {});
+  }
+
+  // Generate world/stage options
+  var worldOpts = [];
+  for (var w = 1; w <= 8; w++) worldOpts.push(e("option", { key: w, value: w }, "World " + w));
+  var stageOpts = [];
+  for (var s = 1; s <= 4; s++) stageOpts.push(e("option", { key: s, value: s }, "Stage " + s));
+
+  return e("div", { className: "live-play-panel" },
+    e("div", { className: "live-play-title" }, "LIVE PLAY"),
+    e("div", { className: "live-play-controls" },
+      e("div", { className: "live-play-field", style: { flex: 2 } },
+        e("label", null, "Checkpoint"),
+        e("select", {
+          value: selectedCp,
+          onChange: function(ev) { onSelectCheckpoint(ev.target.value); },
+          disabled: isPlaying,
+        },
+          e("option", { value: "" }, "-- Select checkpoint --"),
+          checkpoints.map(function(cp) {
+            var label = cp.name;
+            if (cp.is_best) label = "\u2605 " + label;
+            if (cp.world && cp.stage) label += " (W" + cp.world + "-" + cp.stage + ")";
+            if (cp.avg_reward != null) label += " r:" + cp.avg_reward;
+            return e("option", { key: cp.name, value: cp.name }, label);
+          })
+        )
+      ),
+      e("div", { className: "live-play-field" },
+        e("label", null, "World"),
+        e("select", {
+          value: playWorld,
+          onChange: function(ev) { setPlayWorld(parseInt(ev.target.value)); },
+          disabled: isPlaying,
+        }, worldOpts)
+      ),
+      e("div", { className: "live-play-field" },
+        e("label", null, "Stage"),
+        e("select", {
+          value: playStage,
+          onChange: function(ev) { setPlayStage(parseInt(ev.target.value)); },
+          disabled: isPlaying,
+        }, stageOpts)
+      ),
+      !isPlaying
+        ? e("button", {
+            className: "btn btn-small btn-start",
+            onClick: startPlay,
+            disabled: starting || !selectedCp,
+          }, starting ? "LOADING..." : "PLAY")
+        : e("button", {
+            className: "btn btn-small btn-stop",
+            onClick: stopPlay,
+          }, "STOP")
+    ),
+    // Result banner
+    result && !result.error && e("div", { className: "play-result " + (result.flag_get ? "win" : "lose") },
+      result.flag_get ? "LEVEL COMPLETE!" : (result.stopped ? "STOPPED" : "GAME OVER"),
+      e("div", { className: "result-stats" },
+        "x_pos: " + result.x_pos + " | reward: " + result.reward + " | steps: " + result.steps
+      )
+    ),
+    result && result.error && e("div", { className: "play-result lose" }, "ERROR: " + result.error),
+    // Canvas
+    e("div", { className: "live-play-canvas-wrap" },
+      (isPlaying || liveStats)
+        ? e("canvas", { ref: canvasRef, style: { imageRendering: "pixelated" } })
+        : e("div", { style: { color: "var(--text-dim)", fontSize: 12 } },
+            "Select a checkpoint and click PLAY to watch the model play")
+    ),
+    // Live stats
+    liveStats && e("div", { className: "live-stats" },
+      e("div", { className: "live-stat" },
+        e("div", { className: "live-stat-label" }, "X POS"),
+        e("div", { className: "live-stat-value" }, liveStats.x_pos)
+      ),
+      e("div", { className: "live-stat" },
+        e("div", { className: "live-stat-label" }, "REWARD"),
+        e("div", { className: "live-stat-value" }, liveStats.reward)
+      ),
+      e("div", { className: "live-stat" },
+        e("div", { className: "live-stat-label" }, "STEPS"),
+        e("div", { className: "live-stat-value" }, liveStats.step)
+      ),
+      e("div", { className: "live-stat" },
+        e("div", { className: "live-stat-label" }, "TIME"),
+        e("div", { className: "live-stat-value" }, liveStats.time)
+      )
+    ),
+    // Run Again button after result
+    result && !isPlaying && e("div", { style: { textAlign: "center", marginTop: 8 } },
+      e("button", {
+        className: "btn btn-small btn-start",
+        onClick: startPlay,
+        style: { width: "auto", display: "inline-flex" },
+      }, "RUN AGAIN")
+    )
+  );
+}
+
+function LevelProgressionPanel(props) {
+  var levels = props.levels || [];
+  var currentWorld = props.currentWorld;
+  var currentStage = props.currentStage;
+
+  // Build a lookup map
+  var levelMap = {};
+  levels.forEach(function(lv) {
+    levelMap[lv.world + "-" + lv.stage] = lv;
+  });
+
+  function onCellClick(w, s) {
+    if (props.onSelectLevel) props.onSelectLevel(w, s);
+  }
+
+  var rows = [];
+  // Header row
+  rows.push(e("div", { key: "h0", className: "level-grid-header" }, ""));
+  for (var s = 1; s <= 4; s++) {
+    rows.push(e("div", { key: "h" + s, className: "level-grid-header" }, "S" + s));
+  }
+  // World rows
+  for (var w = 1; w <= 8; w++) {
+    rows.push(e("div", { key: "w" + w, className: "level-grid-header" }, "W" + w));
+    for (var s2 = 1; s2 <= 4; s2++) {
+      var key = w + "-" + s2;
+      var lv = levelMap[key];
+      var cls = "level-cell";
+      if (lv) cls += " trained";
+      if (w === currentWorld && s2 === currentStage && props.isTraining) cls += " current";
+      var info = lv ? (lv.checkpoints + " cp" + (lv.best_reward != null ? " | r:" + lv.best_reward : "")) : "";
+      rows.push(e("div", {
+        key: key,
+        className: cls,
+        onClick: function(ww, ss) { return function() { onCellClick(ww, ss); }; }(w, s2),
+      },
+        w + "-" + s2,
+        info && e("div", { className: "level-cell-info" }, info)
+      ));
+    }
+  }
+
+  return e("div", { className: "level-grid-panel" },
+    e("div", { className: "level-grid-title" }, "LEVEL PROGRESSION"),
+    e("div", { className: "level-grid" }, rows)
+  );
+}
+
+function CheckpointsPanel(props) {
+  var checkpoints = props.checkpoints;
+  var _s1 = useState(""); var snapName = _s1[0]; var setSnapName = _s1[1];
+  var _s2 = useState(false); var saving = _s2[0]; var setSaving = _s2[1];
+
+  function saveSnapshot() {
+    if (!snapName.trim()) return;
+    setSaving(true);
+    fetch("/api/snapshots/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: snapName.trim() }),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      setSaving(false);
+      if (data.status === "ok") {
+        setSnapName("");
+        if (props.onRefresh) props.onRefresh();
+      } else {
+        alert(data.message || "Failed to save snapshot");
+      }
+    })
+    .catch(function() { setSaving(false); });
+  }
+
+  function loadCheckpoint(name) {
+    if (!confirm("Start training from checkpoint: " + name + "?")) return;
+    var p = Object.assign({}, props.params, { checkpoint_path: "checkpoints/" + name });
+    fetch("/api/training/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(p),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status === "ok") {
+        if (props.onTrainingStarted) props.onTrainingStarted(data.device);
+      } else {
+        alert(data.message);
+      }
+    })
+    .catch(function(err) { alert("Failed: " + err); });
+  }
+
+  return e("div", { className: "checkpoints-panel" },
+    e("div", { className: "checkpoints-title" }, "MODEL CHECKPOINTS"),
+    props.isTraining && e("div", { className: "snapshot-row" },
+      e("input", {
+        className: "snapshot-input",
+        placeholder: "Snapshot name...",
+        value: snapName,
+        onChange: function(ev) { setSnapName(ev.target.value); },
+        onKeyDown: function(ev) { if (ev.key === "Enter") saveSnapshot(); }
+      }),
+      e("button", {
+        className: "btn btn-small badge-gold",
+        onClick: saveSnapshot,
+        disabled: saving || !snapName.trim()
+      }, saving ? "SAVING..." : "SAVE SNAPSHOT")
+    ),
+    checkpoints.length === 0
+      ? e("div", { style: { color: "var(--text-dim)", fontSize: 12 } }, "No checkpoints yet. They are saved automatically during training.")
+      : checkpoints.slice(0, 15).map(function(cp) {
+          var meta = [];
+          if (cp.avg_reward != null) meta.push("reward: " + cp.avg_reward);
+          if (cp.max_x_pos != null) meta.push("max_x: " + cp.max_x_pos);
+          if (cp.type) meta.push(cp.type);
+          var levelBadge = (cp.world && cp.stage) ? e("span", { className: "level-badge" }, "W" + cp.world + "-" + cp.stage) : null;
+          return e("div", { key: cp.name, className: "checkpoint-row" + (cp.is_best ? " is-best" : "") },
+            e("div", null,
+              e("div", { className: "checkpoint-name" },
+                (cp.is_best ? "\u2605 " : "") + cp.name, levelBadge
+              ),
+              meta.length > 0 && e("div", { className: "checkpoint-meta" }, meta.join(" | "))
+            ),
+            e("div", { className: "checkpoint-actions" },
+              !props.isTraining && e("button", {
+                className: "btn btn-small badge-blue",
+                onClick: function() { loadCheckpoint(cp.name); }
+              }, "LOAD")
+            )
+          );
+        })
+  );
+}
+
+function LogConsole(props) {
+  var containerRef = useRef(null);
+  var stickToBottomRef = useRef(true);
+
+  // Track whether user has scrolled up
+  function onScroll() {
+    var el = containerRef.current;
+    if (!el) return;
+    var atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    stickToBottomRef.current = atBottom;
+  }
+
+  // Only auto-scroll if user is already at the bottom
+  useEffect(function() {
+    if (stickToBottomRef.current && containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    }
+  }, [props.logs.length]);
+
+  return e("div", { className: "log-console" },
+    e("div", { className: "log-console-header" }, "TRAINING LOG"),
+    e("div", { className: "log-content", ref: containerRef, onScroll: onScroll },
+      props.logs.map(function(log, i) {
+        return e("div", { key: i }, log);
+      })
+    )
+  );
+}
+
+function EmptyState() {
+  return e("div", { className: "empty-state" },
+    e("h2", null, "READY TO TRAIN"),
+    e("p", null, "Configure your hyperparameters in the sidebar, check your system health, and hit START to begin training Mario AI. Charts and replays will appear here as training progresses.")
+  );
+}
+
+function MainContent(props) {
+  var metrics = props.metrics;
+  var evalM = props.evalMetrics;
+  var hasData = metrics.length > 0;
+  var latest = hasData ? metrics[metrics.length - 1] : {};
+
+  var hasCheckpoints = props.checkpoints && props.checkpoints.length > 0;
+
+  if (!hasData && !props.isTraining && !hasCheckpoints) {
+    return e("div", { className: "content" }, e(EmptyState));
+  }
+
+  // Downsample data for charts (max 500 points)
+  var chartData = metrics;
+  if (metrics.length > 500) {
+    var step = Math.ceil(metrics.length / 500);
+    chartData = metrics.filter(function(_, i) { return i % step === 0; });
+  }
+
+  var evalCards = [];
+  if (evalM) {
+    evalCards.push(e(StatCard, { key: "eval_reward", label: "EVAL REWARD", value: evalM.eval_reward || "0", colorClass: "stat-purple",
+      subtitle: "Avg over 3 test episodes (no exploration)" }));
+    evalCards.push(e(StatCard, { key: "eval_x", label: "EVAL X POS", value: Math.round(evalM.eval_x_pos) || "0", colorClass: "stat-purple",
+      subtitle: "Avg distance reached in test episodes" }));
+    evalCards.push(e(StatCard, { key: "eval_flag", label: "EVAL FLAG RATE", value: (evalM.eval_flag_rate * 100).toFixed(0) + "%", colorClass: "stat-purple",
+      subtitle: "% of test episodes reaching the flag" }));
+  }
+
+  return e("div", { className: "content" },
+    e("div", { className: "stats-row" },
+      e(StatCard, { label: "AVG REWARD (100-EP)", value: latest.avg_reward || "0", colorClass: "stat-green" }),
+      e(StatCard, { label: "MAX X POSITION", value: latest.max_x_pos || "0", colorClass: "stat-blue" }),
+      e(StatCard, { label: "EPISODES", value: latest.episode || "0", colorClass: "stat-gold" }),
+      e(StatCard, { label: "TIMESTEP", value: latest.timestep ? (latest.timestep >= 1000000 ? (latest.timestep / 1000000).toFixed(1) + "M" : latest.timestep >= 1000 ? Math.round(latest.timestep / 1000) + "K" : latest.timestep) : "0", colorClass: "stat-green" }),
+      e(StatCard, { label: "FPS", value: latest.fps || "0", colorClass: "stat-green" }),
+      e(StatCard, { label: "ELAPSED", value: formatTime(latest.elapsed), colorClass: "stat-blue" }),
+      evalCards
+    ),
+    e("div", { className: "charts-grid" },
+      e(RewardChart, { data: chartData }),
+      e(XPosChart, { data: chartData, maxXPos: latest.max_x_pos || 0 }),
+      e(LengthChart, { data: chartData }),
+      e(RewardScatterChart, { data: chartData })
+    ),
+    // Next level suggestion
+    evalM && evalM.eval_flag_rate >= 0.8 && props.isTraining && e("div", { className: "next-level-banner" },
+      e("div", { className: "banner-text" }, "LEVEL MASTERED! FLAG RATE: " + (evalM.eval_flag_rate * 100).toFixed(0) + "%"),
+      e("button", {
+        className: "btn btn-small btn-start",
+        onClick: function() {
+          var w = props.params.world || 1;
+          var s = props.params.stage || 1;
+          var nextS = s + 1;
+          var nextW = w;
+          if (nextS > 4) { nextS = 1; nextW = w + 1; }
+          if (nextW > 8) { alert("All worlds complete!"); return; }
+          if (props.onNextLevel) props.onNextLevel(nextW, nextS);
+        }
+      }, "TRAIN ON WORLD " + (function() {
+        var w = props.params.world || 1;
+        var s = (props.params.stage || 1) + 1;
+        if (s > 4) return (w + 1) + "-1";
+        return w + "-" + s;
+      })())
+    ),
+    e(LivePlayPanel, {
+      checkpoints: props.checkpoints,
+      params: props.params,
+      setPlayHandler: props.setPlayHandler,
+    }),
+    e(ReplayViewer, {
+      replays: props.replays,
+      ws: props.ws,
+      onReplayMsg: true,
+      setReplayHandler: props.setReplayHandler,
+    }),
+    e(LevelProgressionPanel, {
+      levels: props.levels,
+      currentWorld: props.params.world,
+      currentStage: props.params.stage,
+      isTraining: props.isTraining,
+      onSelectLevel: props.onSelectLevel,
+    }),
+    e(CheckpointsPanel, {
+      checkpoints: props.checkpoints,
+      isTraining: props.isTraining,
+      params: props.params,
+      onRefresh: props.onRefreshCheckpoints,
+      onTrainingStarted: props.onTrainingStarted,
+    }),
+    e(LogConsole, { logs: props.logs })
+  );
+}
+
+// --- MAIN APP ---
+function App() {
+  var _s1 = useState(false); var connected = _s1[0]; var setConnected = _s1[1];
+  var _s2 = useState(false); var isTraining = _s2[0]; var setIsTraining = _s2[1];
+  var _s3 = useState("cpu"); var device = _s3[0]; var setDevice = _s3[1];
+  var _s4 = useState(null); var system = _s4[0]; var setSystem = _s4[1];
+  var _s5 = useState([]); var metrics = _s5[0]; var setMetrics = _s5[1];
+  var _s6 = useState([]); var logs = _s6[0]; var setLogs = _s6[1];
+  var _s7 = useState([]); var replays = _s7[0]; var setReplays = _s7[1];
+  var _s10 = useState([]); var checkpoints = _s10[0]; var setCheckpoints = _s10[1];
+  var _s11 = useState(null); var lastCheckpoint = _s11[0]; var setLastCheckpoint = _s11[1];
+  var _s12 = useState(null); var evalMetrics = _s12[0]; var setEvalMetrics = _s12[1];
+  var _s13 = useState([]); var levels = _s13[0]; var setLevels = _s13[1];
+  var lastCheckpointRef = useRef(null);
+
+  // Default params
+  var defaultParams = {};
+  PARAM_SECTIONS.forEach(function(s) {
+    s.params.forEach(function(p) { defaultParams[p.key] = p.default; });
+  });
+  var _s8 = useState(defaultParams); var params = _s8[0]; var setParams = _s8[1];
+
+  var _s9 = useState({
+    health: false,
+    "NEURAL NETWORK": true,
+    "PPO ALGORITHM": true,
+    "ENVIRONMENT": true,
+    "REWARD SHAPING": true,
+    "TRAINING RUN": true,
+  });
+  var collapsedSections = _s9[0]; var setCollapsedSections = _s9[1];
+
+  var wsRef = useRef(null);
+  var replayHandlerRef = useRef(null);
+  var playHandlerRef = useRef(null);
+  var reconnectTimerRef = useRef(null);
+  var metricsRef = useRef([]);
+
+  function setReplayHandler(fn) {
+    replayHandlerRef.current = fn;
+  }
+
+  function setPlayHandler(fn) {
+    playHandlerRef.current = fn;
+  }
+
+  // Fetch system check
+  useEffect(function() {
+    fetch("/api/system-check")
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        setSystem(data);
+        setDevice(data.device || "cpu");
+      })
+      .catch(function(err) { console.error("System check failed:", err); });
+  }, []);
+
+  function refreshCheckpoints() {
+    fetch("/api/checkpoints")
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var cps = data.checkpoints || [];
+        setCheckpoints(cps);
+        // Auto-detect a resumable checkpoint if we don't have one yet
+        if (!lastCheckpointRef.current && cps.length > 0) {
+          // Prefer autosave, then best, then most recent
+          var auto = cps.find(function(c) { return c.name && c.name.indexOf("autosave") !== -1; });
+          var best = cps.find(function(c) { return c.is_best; });
+          var pick = auto || best || cps[0];
+          if (pick) {
+            setLastCheckpoint(pick.name);
+            lastCheckpointRef.current = pick.name;
+          }
+        }
+      })
+      .catch(function() {});
+  }
+
+  function refreshLevels() {
+    fetch("/api/levels/summary")
+      .then(function(r) { return r.json(); })
+      .then(function(data) { setLevels(data.levels || []); })
+      .catch(function() {});
+  }
+
+  // Fetch replays, checkpoints, and levels periodically
+  useEffect(function() {
+    refreshCheckpoints();
+    refreshLevels();
+    var interval = setInterval(function() {
+      fetch("/api/replays")
+        .then(function(r) { return r.json(); })
+        .then(function(data) { setReplays(data.replays || []); })
+        .catch(function() {});
+      refreshCheckpoints();
+      refreshLevels();
+    }, 5000);
+    return function() { clearInterval(interval); };
+  }, []);
+
+  // WebSocket connection with auto-reconnect
+  function connectWS() {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return;
+
+    var protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    var ws = new WebSocket(protocol + "//" + window.location.host + "/ws");
+
+    ws.onopen = function() {
+      setConnected(true);
+      console.log("WebSocket connected");
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+    };
+
+    ws.onmessage = function(event) {
+      var msg = JSON.parse(event.data);
+
+      if (msg.type === "status") {
+        setIsTraining(msg.is_training);
+        setDevice(msg.device || "cpu");
+      } else if (msg.type === "metrics") {
+        if (msg.data && msg.data.eval) {
+          setEvalMetrics(msg.data);
+        } else {
+          metricsRef.current = metricsRef.current.concat([msg.data]);
+          // Throttle state updates
+          if (metricsRef.current.length % 3 === 0 || metricsRef.current.length < 10) {
+            setMetrics(metricsRef.current.slice());
+          }
+        }
+      } else if (msg.type === "log") {
+        setLogs(function(prev) {
+          var next = prev.concat([msg.message]);
+          if (next.length > 200) next = next.slice(-200);
+          return next;
+        });
+      } else if (msg.type && msg.type.startsWith("replay_")) {
+        if (replayHandlerRef.current) {
+          replayHandlerRef.current(msg);
+        }
+      } else if (msg.type && msg.type.startsWith("play_")) {
+        if (playHandlerRef.current) {
+          playHandlerRef.current(msg);
+        }
+      }
+    };
+
+    ws.onclose = function() {
+      setConnected(false);
+      console.log("WebSocket disconnected, reconnecting...");
+      reconnectTimerRef.current = setTimeout(connectWS, 2000);
+    };
+
+    ws.onerror = function() {
+      ws.close();
+    };
+
+    wsRef.current = ws;
+  }
+
+  useEffect(function() {
+    connectWS();
+    return function() {
+      if (wsRef.current) wsRef.current.close();
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+    };
+  }, []);
+
+  function onStart() {
+    setLogs(function(prev) { return prev.concat(["[--:--:--] Starting training..."]); });
+    fetch("/api/training/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status === "ok") {
+        setIsTraining(true);
+        setDevice(data.device || device);
+        metricsRef.current = [];
+        setMetrics([]);
+      } else {
+        alert(data.message);
+      }
+    })
+    .catch(function(err) { alert("Failed to start: " + err); });
+  }
+
+  function onStop() {
+    // Save a snapshot before stopping so we can resume later
+    fetch("/api/snapshots/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "autosave" }),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status === "ok" && data.filename) {
+        setLastCheckpoint(data.filename);
+        lastCheckpointRef.current = data.filename;
+      }
+    })
+    .catch(function() {});
+
+    fetch("/api/training/stop", { method: "POST" })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status === "ok") {
+        setIsTraining(false);
+        refreshCheckpoints();
+      }
+    })
+    .catch(function(err) { alert("Failed to stop: " + err); });
+  }
+
+  function onResume() {
+    setLogs(function(prev) { return prev.concat(["[--:--:--] Resuming training..."]); });
+    var cp = lastCheckpoint;
+    if (!cp) return;
+    var p = Object.assign({}, params, { checkpoint_path: "checkpoints/" + cp });
+    fetch("/api/training/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(p),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status === "ok") {
+        setIsTraining(true);
+        setDevice(data.device || device);
+        metricsRef.current = [];
+        setMetrics([]);
+        setEvalMetrics(null);
+      } else {
+        alert(data.message);
+      }
+    })
+    .catch(function(err) { alert("Failed to resume: " + err); });
+  }
+
+  function onParamChange(key, value) {
+    setParams(function(prev) {
+      var next = Object.assign({}, prev);
+      next[key] = value;
+      return next;
+    });
+  }
+
+  function toggleSection(name) {
+    setCollapsedSections(function(prev) {
+      var next = Object.assign({}, prev);
+      next[name] = !next[name];
+      return next;
+    });
+  }
+
+  return e("div", { className: "app" },
+    e(TopBar, { connected: connected, isTraining: isTraining, device: device }),
+    e("div", { className: "main-layout" },
+      e(Sidebar, {
+        system: system,
+        isTraining: isTraining,
+        params: params,
+        collapsedSections: collapsedSections,
+        toggleSection: toggleSection,
+        onParamChange: onParamChange,
+        onStart: onStart,
+        onStop: onStop,
+        onResume: onResume,
+        lastCheckpoint: lastCheckpoint,
+        currentTimestep: metrics.length > 0 ? metrics[metrics.length - 1].timestep : 0,
+        totalTimesteps: metrics.length > 0 ? metrics[metrics.length - 1].total_timesteps : 0,
+      }),
+      e(MainContent, {
+        isTraining: isTraining,
+        metrics: metrics,
+        evalMetrics: evalMetrics,
+        logs: logs,
+        replays: replays,
+        checkpoints: checkpoints,
+        levels: levels,
+        params: params,
+        ws: wsRef.current,
+        setReplayHandler: setReplayHandler,
+        setPlayHandler: setPlayHandler,
+        onRefreshCheckpoints: refreshCheckpoints,
+        onTrainingStarted: function(dev) {
+          setIsTraining(true);
+          setDevice(dev || device);
+          metricsRef.current = [];
+          setMetrics([]);
+          setEvalMetrics(null);
+        },
+        onSelectLevel: function(w, s) {
+          onParamChange("world", w);
+          onParamChange("stage", s);
+        },
+        onNextLevel: function(w, s) {
+          // Stop current training, set level, suggest loading best checkpoint
+          onStop();
+          setTimeout(function() {
+            onParamChange("world", w);
+            onParamChange("stage", s);
+          }, 500);
+        },
+      })
+    )
+  );
+}
+
+// Mount
+var root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(e(App));
+</script>
+</body>
+</html>
