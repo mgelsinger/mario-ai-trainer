@@ -400,6 +400,11 @@ class MarioTrainer:
             else:
                 lr = lr_value
 
+            # Extract level params early (needed for checkpoint mismatch check)
+            world = params.get("world", 1)
+            stage = params.get("stage", 1)
+            movement_type = params.get("movement_type", "right_only")
+
             # Check for checkpoint to resume from
             resume_path = self._resume_checkpoint or self._find_latest_checkpoint()
             loaded_checkpoint = False
@@ -458,9 +463,6 @@ class MarioTrainer:
 
             # Callbacks
             total_timesteps = params.get("total_timesteps", 5_000_000)
-            world = params.get("world", 1)
-            stage = params.get("stage", 1)
-            movement_type = params.get("movement_type", "right_only")
             metrics_cb = MetricsCallback(on_metrics=self._on_metrics, on_log=self._on_log, total_timesteps=total_timesteps)
             checkpoint_cb = CheckpointCallback(
                 save_freq=50000, save_path=self._checkpoint_path,
@@ -509,11 +511,16 @@ class MarioTrainer:
         except Exception as e:
             if self._on_log:
                 self._on_log(f"Training error: {str(e)}")
+            if self._on_metrics:
+                self._on_metrics({"type": "training_error", "error": str(e)})
             import traceback
             traceback.print_exc()
         finally:
             self.is_training = False
             self._resume_checkpoint = None
+            # Broadcast stopped status so frontend exits training state
+            if self._on_metrics:
+                self._on_metrics({"type": "status", "is_training": False})
             if self.env:
                 try:
                     self.env.close()

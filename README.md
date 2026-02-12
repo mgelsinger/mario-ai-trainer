@@ -1,229 +1,169 @@
-# Mario AI Trainer
+# MARIO AI TRAINER
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+**Train a neural network to beat Super Mario Bros — watch it learn in real time.**
 
-Train an AI to play Super Mario Bros using reinforcement learning (PPO), with a real-time browser dashboard to monitor training, watch live play, and progress through all 32 levels.
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C?logo=pytorch&logoColor=white)
+![Stable-Baselines3](https://img.shields.io/badge/Stable--Baselines3-2.1+-4B8BBE)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-009688?logo=fastapi&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
 
-![Dashboard](screenshots/dashboard.png)
+<p align="center">
+  <img src="screenshots/dashboard.png" alt="Mario AI Trainer Dashboard" width="800">
+  <br>
+  <em>Real-time training dashboard with live play, metrics, and replay browser</em>
+</p>
 
-## Features
+---
 
-- **Real-time dashboard** — watch training metrics, charts, and replays update live in your browser
-- **Live Play** — select any saved checkpoint and watch the AI play Mario in real-time
-- **Level Progression** — train on World 1-1, then transfer the model to 1-2, 1-3, and beyond
-- **Checkpoint management** — auto-saves best models per level, manual snapshots, resume anytime
-- **Configurable everything** — 20+ hyperparameters adjustable from the UI
-- **No build step** — single HTML file frontend, just run the server and go
+## Highlights
 
-![Live Play](screenshots/live-play.png)
-
-## Requirements
-
-- **Windows 10/11** (tested on Windows; Linux/Mac may work with adjustments)
-- **Python 3.9+**
-- **NVIDIA GPU with CUDA** (recommended, CPU works but is much slower)
-- **Visual C++ Build Tools** (required for nes-py compilation)
+- **One-click setup** — GPU auto-detected, CUDA configured automatically
+- **Real-time dashboard** — live reward curves, episode stats, and system health
+- **Watch the AI play** — ~15 FPS WebSocket stream directly in the browser
+- **Replay system** — scrub through past episodes with speed controls and MP4 export
+- **32-level progression** — train across all worlds with transfer learning between levels
+- **Research-tuned hyperparameters** — gamma=0.9, reward clipping, linear LR annealing
+- **Resume anytime** — checkpoint system with per-level best model tracking
+- **Zero-build frontend** — no npm, no webpack, just open the browser
 
 ## Quick Start
 
-### 1. Install Visual C++ Build Tools (if not already installed)
-
-nes-py requires C++ compilation. Download from:
-https://visualstudio.microsoft.com/visual-cpp-build-tools/
-
-Select **"Desktop development with C++"** during installation.
-
-### 2. Setup
-
-**Option A: Double-click setup**
-```
-setup.bat
-```
-
-**Option B: PowerShell**
-```powershell
-.\setup.ps1
-```
-
-**Option C: Manual**
 ```bash
-python -m venv venv
-venv\Scripts\activate
+# 1. Clone
+git clone https://github.com/YOUR_USERNAME/mario-ai-trainer.git
+cd mario-ai-trainer
 
-# With NVIDIA GPU:
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+# 2. Setup (auto-detects GPU, installs everything)
+setup.bat          # Windows
+# or
+.\setup.ps1        # PowerShell
 
-# CPU only:
-pip install torch torchvision
-
-pip install -r requirements.txt
-```
-
-### 3. Run
-
-```bash
+# 3. Run
 venv\Scripts\activate
 python server.py
+
+# 4. Open http://localhost:8000
 ```
 
-Open **http://localhost:8000** in your browser.
+From clone to training in under 5 minutes.
 
-### 4. Train
+> **Prerequisite:** [Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with the "Desktop development with C++" workload (required for nes-py compilation).
 
-1. Check the **System Health** panel — make sure dependencies are green
-2. Adjust hyperparameters if desired (defaults are good for starting out)
-3. Click **START NEW**
-4. Watch the charts update in real-time
-5. Check replays as they become available
+## Dashboard Overview
 
-### 5. Watch the AI Play
+<!-- Replace with an annotated screenshot of your dashboard -->
+<p align="center">
+  <img src="screenshots/dashboard-annotated.png" alt="Dashboard Overview" width="800">
+</p>
 
-1. After training (or with a saved checkpoint), open the **LIVE PLAY** panel
-2. Select a checkpoint from the dropdown
-3. Choose a world/stage (auto-detected from checkpoint metadata)
-4. Click **PLAY** to watch the model run the level in real-time
-5. Click **RUN AGAIN** to watch another attempt
+| Panel | What it shows |
+|-------|--------------|
+| **System Health** | GPU model, VRAM usage, CUDA version, CPU/RAM stats |
+| **Hyperparameters** | All training params tunable from the UI — learning rate, gamma, entropy, batch size |
+| **Training Charts** | Live reward and episode length curves via Recharts |
+| **Live Play** | Stream the agent playing in real time (~15 FPS over WebSocket) |
+| **Replay Browser** | Scrub through recorded episodes, adjust playback speed, export MP4 |
+| **Level Tracker** | Progress across all 32 levels with "next level" prompt at 80% flag rate |
 
-### 6. Progress to the Next Level
+## How It Works
 
-1. Train until the eval flag rate reaches 80%+ (a banner will appear)
-2. Click **TRAIN ON NEXT LEVEL** or manually set the world/stage
-3. Load your best checkpoint from the previous level
-4. Start training — the model transfers its learned skills to the new level
-5. Repeat until all 32 levels are beaten
+```
+┌─────────────────────────────────────────────────────────┐
+│                     Browser (React 18)                  │
+│   Charts · Live Play · Replays · Controls · Metrics     │
+└──────────────┬──────────────────────┬───────────────────┘
+               │ REST API             │ WebSocket
+               ▼                      ▼
+┌─────────────────────────────────────────────────────────┐
+│                  FastAPI Server (server.py)              │
+│          Training control · Play sessions · Levels      │
+└──────────────┬──────────────────────┬───────────────────┘
+               │                      │
+               ▼                      ▼
+┌──────────────────────┐  ┌───────────────────────────────┐
+│   PPO Trainer        │  │   Live Play Thread            │
+│   (trainer.py)       │  │   Independent env + model     │
+│                      │  │   Streams frames via WS       │
+│   8× SubprocVecEnv   │  └───────────────────────────────┘
+│   + eval env         │
+└──────────┬───────────┘
+           │
+           ▼
+┌─────────────────────────────────────────────────────────┐
+│              Environment Wrappers (env_wrappers.py)     │
+│  GymToGymnasiumAdapter · FrameSkip (max-pool last 2)   │
+│  GrayscaleResize · NormalizeObs · FrameStack (4)        │
+│  RewardShaping · EpisodeRecorder · JoypadSpace          │
+└──────────────┬──────────────────────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────────────────────┐
+│           Super Mario Bros (NES via nes-py)             │
+└─────────────────────────────────────────────────────────┘
+```
 
-## What to Expect at Each Stage
+**PPO** (Proximal Policy Optimization) trains across **8 parallel environments** using `SubprocVecEnv`. Each environment passes through 7 custom wrappers — bridging the old gym API to gymnasium, applying frame skip with max-pooling (to avoid NES sprite flicker), grayscale + resize, reward shaping with death penalties, and 4-frame stacking for temporal context.
 
-Default settings: 8 parallel envs, gamma=0.9, linear LR annealing, reward clipping at 15.
+A separate evaluation environment runs in the main process with an episode recorder. Every 50K steps, 3 deterministic eval episodes measure actual performance without exploration noise.
 
-### 10 minutes (~100K steps)
-- Mario learns to move right consistently
-- Still mostly dying to early obstacles
-- Average reward near zero or slightly positive
-- X position: ~300-600
+The frontend is vanilla React 18 loaded via CDN — no build step, no transpilation, no node_modules. Just open `localhost:8000`.
 
-### 30 minutes (~500K steps)
-- Mario navigates past the first few obstacles
-- Starting to learn basic jumping patterns
-- Average reward trending upward
-- X position: ~600-1200
+## Training Tips
 
-### 1 hour (~1M steps)
-- Mario reliably reaches mid-level
-- Learning enemy avoidance and gap jumping
-- Reward trend clearly upward
-- X position: ~1200-2000
+**What to expect:**
 
-### 2-3 hours (~2-3M steps)
-- Mario reaches the flagpole on some runs
-- Developing consistent strategies
-- X position: ~2000-3000+
+| Timesteps | Behavior |
+|-----------|----------|
+| ~100K | Learns to move right, mostly dies early |
+| ~500K | Starts jumping over gaps and enemies |
+| ~1M | Consistent forward progress, occasionally completes the level |
+| ~5M+ | Reliable level completion |
 
-### 4-6 hours (~5M steps)
-- Mario completes the level regularly
-- Consistent high x_positions
-- Reward curve plateauing near maximum
+**Key insights:**
 
-### 8+ hours (~10M steps)
-- Mario completes the level most of the time
-- Optimized pathing and timing
-- Near-maximum reward per episode
+- **gamma = 0.9** (not 0.99) — Mario needs reactive, short-horizon decision-making. High gamma overvalues distant, unreachable rewards.
+- **Reward clipping at +/-15** — matches the built-in reward scale, prevents gradient explosion from large death penalties.
+- **Transfer learning** — train on World 1-1 until 80%+ flag rate, then load that checkpoint as the starting point for World 1-2. The agent retains movement skills and learns new level layouts faster.
+- **8 parallel environments** — more envs = more diverse experience per update. Fewer than 4 significantly slows convergence.
 
-**Note:** Results vary based on GPU speed, hyperparameters, and randomness. The above are rough guidelines for World 1-1 with default settings. The best model is auto-saved whenever average reward improves.
+## Tech Stack
 
-## Troubleshooting
-
-### "No NVIDIA GPU detected"
-- Install the latest NVIDIA drivers from https://www.nvidia.com/drivers
-- Training will work on CPU but will be 5-10x slower
-
-### "CUDA not available" (but GPU is present)
-- PyTorch was installed without CUDA support. Reinstall:
-  ```
-  pip uninstall torch torchvision
-  pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
-  ```
-
-### nes-py fails to install
-- You need Visual C++ Build Tools. See step 1 above.
-- Make sure you selected "Desktop development with C++"
-- Restart your terminal after installing build tools
-
-### Out of memory (CUDA OOM)
-- Reduce `batch_size` (try 32)
-- Reduce `n_envs` (try 2)
-- Reduce `n_steps` (try 256)
-- Close other GPU applications (games, other ML training)
-
-### Training is very slow
-- Check that CUDA is being used (device badge should show "CUDA")
-- Reduce `n_envs` if CPU-bound
-- Increase `skip_frames` to 6 (fewer decisions per episode)
-
-### Blank dashboard / page won't load
-- Check browser console (F12) for JavaScript errors
-- Try a hard refresh (Ctrl+Shift+R)
-- Make sure the server is running and accessible at localhost:8000
-
-### WebSocket disconnects frequently
-- The dashboard auto-reconnects. Brief disconnects are normal.
-- If persistent, check that no firewall is blocking WebSocket connections.
-
-## Hyperparameter Tuning Guide
-
-### Default settings (recommended for World 1-1)
-These defaults are based on the most successful public Mario PPO implementations:
-- `learning_rate`: 1e-4 with linear annealing
-- `gamma`: 0.9 (lower than typical RL — Mario is reactive, not strategic)
-- `n_epochs`: 10
-- `ent_coef`: 0.01
-- `n_envs`: 8
-- `reward_clip`: 15 (prevents gradient instability from extreme rewards)
-
-### For faster initial learning
-- Increase `learning_rate` to 2.5e-4
-- Increase `ent_coef` to 0.02 (more exploration)
-- Use `right_only` movement (fewer actions to learn)
-
-### For better final performance
-- Lower `learning_rate` to 7e-5
-- Increase `n_steps` to 1024-2048
-- Increase `total_timesteps` to 10M
-
-### For speedrunner Mario
-- Add a small `time_penalty` of 0.05-0.1
-- Increase `progress_weight` to 2.0
-- Decrease `death_penalty` to 5
-
-### For harder levels (World 2+)
-- Use `simple` or `complex` movement
-- Increase `total_timesteps` to 10M
-- Increase `ent_coef` to 0.02 (more exploration needed)
-- Lower `learning_rate` to 7e-5
+| Component | Technology |
+|-----------|-----------|
+| RL Framework | Stable-Baselines3 (PPO) |
+| Deep Learning | PyTorch 2.0+ |
+| Game Environment | gym-super-mario-bros + nes-py |
+| Env Standard | Gymnasium |
+| Backend | FastAPI + Uvicorn |
+| Real-time Comms | WebSocket |
+| Frontend | React 18 + Recharts (CDN, zero build) |
+| Image Processing | OpenCV, Pillow |
+| System Monitoring | psutil, nvidia-smi |
 
 ## Project Structure
 
 ```
 mario-ai-trainer/
-  server.py           # FastAPI server (REST + WebSocket)
-  trainer.py          # PPO training pipeline + live play
-  env_wrappers.py     # Mario environment wrappers
-  requirements.txt    # Python dependencies
-  setup.bat           # Windows setup script (batch)
-  setup.ps1           # Windows setup script (PowerShell)
-  static/
-    index.html        # Dashboard (React 18 + Recharts, no build step)
-  screenshots/        # README images
-  checkpoints/        # Saved model checkpoints (auto-created)
+├── server.py           # FastAPI server — REST + WebSocket endpoints
+├── trainer.py          # PPO training pipeline, live play, checkpoints
+├── env_wrappers.py     # 7 custom environment wrappers
+├── static/
+│   └── index.html      # Real-time dashboard (React 18, no build step)
+├── setup.bat           # One-click Windows setup (auto-detects GPU)
+├── setup.ps1           # PowerShell alternative
+├── requirements.txt    # Pinned dependencies (NumPy < 2.0)
+└── checkpoints/        # Saved models (auto-created)
 ```
 
-## Tech Stack
+## Troubleshooting
 
-- **RL Algorithm**: PPO (Proximal Policy Optimization) via Stable-Baselines3
-- **Game Environment**: gym-super-mario-bros + nes-py
-- **Backend**: FastAPI + uvicorn
-- **Frontend**: React 18 + Recharts (plain JS, no build step)
-- **ML Framework**: PyTorch
+| Problem | Solution |
+|---------|----------|
+| `nes-py` fails to install | Install [Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with the "Desktop development with C++" workload |
+| NumPy errors / uint8 overflow | Ensure `numpy < 2.0` is installed — NumPy 2.x breaks nes-py |
+| PyTorch doesn't detect GPU | The setup script uses the CUDA 12.4 index (`cu124`). Verify: `python -c "import torch; print(torch.cuda.is_available())"` |
+| Blank page in browser | Make sure you're accessing `http://localhost:8000`, not a `file://` URL |
 
 ## License
 

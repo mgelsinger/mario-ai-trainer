@@ -9,6 +9,7 @@ import io
 import json
 import os
 import subprocess
+import tempfile
 import time
 from typing import Optional
 
@@ -40,8 +41,11 @@ def add_log(message: str):
 
 
 def on_metrics(metrics: dict):
-    """Called from training thread with episode metrics."""
-    broadcast({"type": "metrics", "data": metrics})
+    """Called from training thread with episode metrics or control messages."""
+    if metrics.get("type") in ("training_error", "status"):
+        broadcast(metrics)
+    else:
+        broadcast({"type": "metrics", "data": metrics})
 
 
 class _NumpyEncoder(json.JSONEncoder):
@@ -250,6 +254,42 @@ async def list_replays():
     return {"replays": trainer.get_recordings()}
 
 
+@app.get("/api/recordings/{episode}/video")
+async def export_recording_video(episode: int):
+    """Export a recording as MP4 video."""
+    import cv2
+    from starlette.responses import FileResponse
+
+    frames = trainer.get_recording_frames(episode)
+    if frames is None or len(frames) == 0:
+        return {"status": "error", "message": f"Recording for episode {episode} not found"}
+
+    tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+    tmp_path = tmp.name
+    tmp.close()
+
+    try:
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        writer = cv2.VideoWriter(tmp_path, fourcc, 15, (512, 480))
+        for frame in frames:
+            bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            scaled = cv2.resize(bgr, (512, 480), interpolation=cv2.INTER_NEAREST)
+            writer.write(scaled)
+        writer.release()
+
+        from starlette.background import BackgroundTask
+        return FileResponse(
+            tmp_path,
+            media_type="video/mp4",
+            filename=f"mario_episode_{episode}.mp4",
+            background=BackgroundTask(os.unlink, tmp_path),
+        )
+    except Exception as e:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        return {"status": "error", "message": str(e)}
+
+
 @app.get("/api/checkpoints")
 async def list_checkpoints():
     """List saved model checkpoints."""
@@ -346,6 +386,53 @@ async def level_summary():
             levels[key]["total_timesteps"] = int(timestep)
 
     return {"levels": list(levels.values())}
+
+
+@app.get("/api/levels/{world}/{stage}/start-options")
+async def level_start_options(world: int, stage: int):
+    """Get checkpoint options for starting training on a given level."""
+    checkpoints = trainer.get_checkpoints()
+
+    # Determine previous level (W1-1 has no prior)
+    if stage > 1:
+        prev_world, prev_stage = world, stage - 1
+    elif world > 1:
+        prev_world, prev_stage = world - 1, 4
+    else:
+        prev_world, prev_stage = None, None
+
+    prior_level_best = None
+    same_level_checkpoints = []
+    other_checkpoints = []
+
+    for cp in checkpoints:
+        cp_w = cp.get("world")
+        cp_s = cp.get("stage")
+        if cp_w is None or cp_s is None:
+            other_checkpoints.append(cp)
+            continue
+        cp_w, cp_s = int(cp_w), int(cp_s)
+        if cp_w == world and cp_s == stage:
+            same_level_checkpoints.append(cp)
+        elif cp_w == prev_world and cp_s == prev_stage and cp.get("is_best"):
+            prior_level_best = cp
+        else:
+            other_checkpoints.append(cp)
+
+    # Sort same-level by most recent first, other by reward descending
+    same_level_checkpoints.sort(key=lambda x: x.get("modified", 0), reverse=True)
+    other_checkpoints.sort(key=lambda x: x.get("avg_reward") or 0, reverse=True)
+
+    result = {
+        "level": {"world": world, "stage": stage},
+        "options": {
+            "fresh": True,
+            "prior_level_best": prior_level_best,
+            "same_level_checkpoints": same_level_checkpoints[:10],
+            "other_checkpoints": other_checkpoints[:10],
+        },
+    }
+    return result
 
 
 # --- WebSocket ---

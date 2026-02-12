@@ -399,6 +399,43 @@ select:disabled { opacity: 0.5; }
 .checkpoint-name { color: var(--text-primary); font-weight: bold; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .checkpoint-meta { color: var(--text-secondary); font-size: 10px; }
 .checkpoint-actions { display: flex; gap: 6px; }
+.checkpoint-row.selected-cp { border-color: var(--neon-blue); background: rgba(0,212,255,0.08); }
+
+/* Training Setup in Sidebar */
+.training-setup { margin-bottom: 12px; }
+.training-setup-title {
+  font-family: 'Press Start 2P', cursive; font-size: 9px; color: var(--neon-blue);
+  margin-bottom: 8px; letter-spacing: 1px;
+}
+.training-setup-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 6px; font-size: 11px;
+}
+.training-setup-label { color: var(--text-secondary); font-size: 10px; }
+.training-setup-value { color: var(--text-primary); font-weight: bold; }
+.training-setup-level {
+  cursor: pointer; padding: 2px 8px; border-radius: 4px;
+  background: rgba(88,166,255,0.1); border: 1px solid var(--blue-dim); color: var(--blue);
+  font-weight: bold; transition: all 0.15s;
+}
+.training-setup-level:hover { border-color: var(--blue); background: rgba(88,166,255,0.2); }
+.cp-selector {
+  padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg-input); margin-bottom: 10px; position: relative;
+}
+.cp-selector.has-cp { border-color: var(--blue-dim); }
+.cp-selector-name {
+  font-size: 10px; color: var(--text-primary); font-weight: bold;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 20px;
+}
+.cp-selector-meta { font-size: 9px; color: var(--text-secondary); margin-top: 2px; }
+.cp-selector-fresh { font-size: 10px; color: var(--text-dim); font-style: italic; }
+.cp-selector-clear {
+  position: absolute; top: 6px; right: 6px; background: none; border: none;
+  color: var(--text-dim); cursor: pointer; font-size: 14px; line-height: 1; padding: 2px;
+}
+.cp-selector-clear:hover { color: var(--text-primary); }
+
 .snapshot-row { display: flex; gap: 8px; margin-bottom: 12px; }
 .snapshot-input {
   flex: 1;
@@ -591,6 +628,46 @@ select:disabled { opacity: 0.5; }
 .level-cell.completed { background: rgba(57,211,83,0.1); border-color: var(--green-dim); color: var(--green); }
 .level-cell.current { border-color: var(--gold); box-shadow: 0 0 6px rgba(227,179,65,0.3); }
 .level-cell-info { font-size: 8px; color: var(--text-dim); margin-top: 2px; }
+.level-cell.completed::after { content: "\2691"; position: absolute; top: 2px; right: 3px; font-size: 8px; color: var(--green); }
+.level-cell { position: relative; }
+
+/* Start Training Dialog */
+.dialog-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7); z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+}
+.dialog-box {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+  padding: 24px; width: 420px; max-width: 90vw; max-height: 80vh; overflow-y: auto;
+}
+.dialog-title {
+  font-family: 'Press Start 2P', cursive; font-size: 13px; color: var(--neon-blue);
+  margin-bottom: 16px;
+}
+.dialog-subtitle {
+  font-size: 12px; color: var(--text-secondary); margin-bottom: 16px;
+}
+.dialog-option {
+  padding: 12px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg-input); cursor: pointer; margin-bottom: 8px; transition: all 0.15s;
+}
+.dialog-option:hover { border-color: var(--blue); }
+.dialog-option.selected { border-color: var(--neon-blue); box-shadow: 0 0 8px rgba(0,212,255,0.2); }
+.dialog-option-title { font-size: 11px; color: var(--text-primary); font-weight: bold; margin-bottom: 4px; }
+.dialog-option-detail { font-size: 10px; color: var(--text-dim); }
+.dialog-option-badge {
+  display: inline-block; font-size: 8px; padding: 2px 6px; border-radius: 4px;
+  background: rgba(227,179,65,0.15); color: var(--gold); border: 1px solid #9e6a03;
+  margin-left: 6px; vertical-align: middle;
+}
+.dialog-section-label { font-size: 9px; color: var(--text-dim); margin: 12px 0 6px; text-transform: uppercase; letter-spacing: 1px; }
+.dialog-actions { display: flex; gap: 8px; margin-top: 16px; }
+.dialog-actions .btn { flex: 1; }
+.dialog-warning {
+  background: rgba(227,179,65,0.1); border: 1px solid #9e6a03; border-radius: 6px;
+  padding: 10px; margin-bottom: 12px; font-size: 10px; color: var(--gold);
+}
 
 /* Level badge on checkpoints */
 .level-badge {
@@ -895,7 +972,62 @@ function TrainingProgress(props) {
 
 function Sidebar(props) {
   var collapsedSections = props.collapsedSections;
-  var hasCheckpoint = props.lastCheckpoint != null;
+  var cp = props.selectedCheckpoint;
+
+  // Training setup section
+  var setupChildren = [];
+  setupChildren.push(e("div", { key: "title", className: "training-setup-title" }, "TRAINING SETUP"));
+
+  // Level display (clickable)
+  setupChildren.push(e("div", { key: "level", className: "training-setup-row" },
+    e("span", { className: "training-setup-label" }, "Level"),
+    e("span", {
+      className: "training-setup-level",
+      onClick: props.isTraining ? null : function() {
+        if (props.onOpenLevelDialog) props.onOpenLevelDialog(props.params.world, props.params.stage);
+      },
+      style: props.isTraining ? { cursor: "default", opacity: 0.6 } : {},
+    }, "W" + props.params.world + "-" + props.params.stage)
+  ));
+
+  // Checkpoint selector
+  setupChildren.push(e("div", { key: "cp-label", className: "training-setup-label", style: { marginBottom: 4 } }, "Checkpoint"));
+  if (cp) {
+    var cpMeta = [];
+    if (cp.world && cp.stage) cpMeta.push("W" + cp.world + "-" + cp.stage);
+    if (cp.avg_reward != null) cpMeta.push("Reward: " + Math.round(cp.avg_reward));
+    if (cp.max_x_pos) cpMeta.push("X: " + cp.max_x_pos);
+    setupChildren.push(e("div", { key: "cp-sel", className: "cp-selector has-cp" },
+      e("div", { className: "cp-selector-name" },
+        (cp.is_best ? "\u2605 " : "") + cp.name + ".zip"),
+      cpMeta.length > 0 && e("div", { className: "cp-selector-meta" }, cpMeta.join("  |  ")),
+      !props.isTraining && e("button", {
+        className: "cp-selector-clear",
+        onClick: function() { if (props.onClearCheckpoint) props.onClearCheckpoint(); },
+        title: "Clear checkpoint (start fresh)",
+      }, "\u2715")
+    ));
+  } else {
+    setupChildren.push(e("div", { key: "cp-sel", className: "cp-selector" },
+      e("div", { className: "cp-selector-fresh" }, "Starting fresh \u2014 no checkpoint")
+    ));
+  }
+
+  // Buttons
+  setupChildren.push(e("div", { key: "btns", style: { display: "flex", gap: "8px" } },
+    e("button", {
+      className: "btn btn-start",
+      disabled: props.isTraining,
+      onClick: props.onStart,
+      style: { flex: "1" },
+    }, cp ? "\u25B6 START" : "\u25B6 START FRESH"),
+    e("button", {
+      className: "btn btn-stop",
+      disabled: !props.isTraining,
+      onClick: props.onStop,
+      style: { flex: "1" },
+    }, "STOP")
+  ));
 
   return e("div", { className: "sidebar" },
     e(HealthPanel, {
@@ -903,25 +1035,7 @@ function Sidebar(props) {
       collapsed: collapsedSections["health"],
       onToggle: function() { props.toggleSection("health"); }
     }),
-    e("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } },
-      e("button", {
-        className: "btn btn-start",
-        disabled: props.isTraining,
-        onClick: props.onStart,
-        style: { flex: hasCheckpoint && !props.isTraining ? "1" : "1" }
-      }, "START NEW"),
-      hasCheckpoint && !props.isTraining && e("button", {
-        className: "btn btn-resume",
-        onClick: props.onResume,
-        style: { flex: "1" }
-      }, "RESUME"),
-      e("button", {
-        className: "btn btn-stop",
-        disabled: !props.isTraining,
-        onClick: props.onStop,
-        style: { flex: "1" }
-      }, "STOP")
-    ),
+    e("div", { className: "training-setup" }, setupChildren),
     props.isTraining && e(TrainingProgress, {
       timestep: props.currentTimestep,
       totalTimesteps: props.totalTimesteps || props.params.total_timesteps,
@@ -1181,7 +1295,15 @@ function ReplayViewer(props) {
             className: "speed-btn" + (speed === s ? " active" : ""),
             onClick: function() { setSpeed(s); }
           }, s + "x");
-        })
+        }),
+        frames.length > 0 && selectedEpisode != null && e("span", {
+          className: "speed-btn",
+          style: { marginLeft: 8, cursor: "pointer", color: "var(--neon-blue)" },
+          onClick: function() {
+            window.location.href = "/api/recordings/" + selectedEpisode + "/video";
+          },
+          title: "Download as MP4 video",
+        }, "\u2B07 MP4")
       )
     )
   );
@@ -1371,6 +1493,201 @@ function LivePlayPanel(props) {
   );
 }
 
+function StartTrainingDialog(props) {
+  var world = props.world;
+  var stage = props.stage;
+  var isTraining = props.isTraining;
+  var onClose = props.onClose;
+  var onStartTraining = props.onStartTraining;
+  var params = props.params;
+
+  var _s = useState(null); var options = _s[0]; var setOptions = _s[1];
+  var _s2 = useState("loading"); var loadState = _s2[0]; var setLoadState = _s2[1];
+  var _s3 = useState("fresh"); var selected = _s3[0]; var setSelected = _s3[1];
+  var _s4 = useState(null); var selectedCp = _s4[0]; var setSelectedCp = _s4[1];
+  var _s5 = useState(false); var showOther = _s5[0]; var setShowOther = _s5[1];
+  var _s6 = useState(false); var starting = _s6[0]; var setStarting = _s6[1];
+
+  useEffect(function() {
+    fetch("/api/levels/" + world + "/" + stage + "/start-options")
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        setOptions(data.options);
+        // Auto-select recommended option
+        if (data.options.same_level_checkpoints && data.options.same_level_checkpoints.length > 0) {
+          setSelected("resume");
+          setSelectedCp(data.options.same_level_checkpoints[0].name);
+        } else if (data.options.prior_level_best) {
+          setSelected("prior");
+          setSelectedCp(data.options.prior_level_best.name);
+        }
+        setLoadState("ready");
+      })
+      .catch(function() { setLoadState("error"); });
+  }, [world, stage]);
+
+  function handleStart() {
+    setStarting(true);
+    var p = Object.assign({}, params, { world: world, stage: stage });
+    var cpObj = null;
+    if (selected !== "fresh" && selectedCp) {
+      p.checkpoint_path = "checkpoints/" + selectedCp;
+      // Find the full checkpoint object for sidebar display
+      var allCps = (options.same_level_checkpoints || []).concat(options.other_checkpoints || []);
+      if (options.prior_level_best) allCps.push(options.prior_level_best);
+      cpObj = allCps.find(function(c) { return c.name === selectedCp; }) || { name: selectedCp };
+    }
+
+    function doStart() {
+      fetch("/api/training/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(p),
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.status === "ok") {
+          onStartTraining(data.device, world, stage, cpObj);
+          onClose();
+        } else {
+          alert(data.message);
+          setStarting(false);
+        }
+      })
+      .catch(function(err) { alert("Failed to start: " + err); setStarting(false); });
+    }
+
+    if (isTraining) {
+      fetch("/api/training/stop", { method: "POST" })
+        .then(function() { setTimeout(doStart, 1000); })
+        .catch(function() { doStart(); });
+    } else {
+      doStart();
+    }
+  }
+
+  function formatReward(v) { return v != null ? Math.round(v) : "—"; }
+  function formatX(v) { return v ? v.toLocaleString() : "—"; }
+
+  if (loadState === "loading") {
+    return e("div", { className: "dialog-overlay", onClick: onClose },
+      e("div", { className: "dialog-box", onClick: function(ev) { ev.stopPropagation(); } },
+        e("div", { className: "dialog-title" }, "TRAIN W" + world + "-" + stage),
+        e("div", { style: { color: "var(--text-dim)", fontSize: "11px" } }, "Loading options...")
+      )
+    );
+  }
+
+  var priorBest = options && options.prior_level_best;
+  var sameLevelCps = (options && options.same_level_checkpoints) || [];
+  var otherCps = (options && options.other_checkpoints) || [];
+
+  var children = [];
+
+  // Warning if training is active
+  if (isTraining) {
+    children.push(e("div", { key: "warn", className: "dialog-warning" },
+      "Training is currently running. Starting a new session will stop the current one."
+    ));
+  }
+
+  // Option: Start Fresh
+  children.push(e("div", {
+    key: "fresh", className: "dialog-option" + (selected === "fresh" ? " selected" : ""),
+    onClick: function() { setSelected("fresh"); setSelectedCp(null); }
+  },
+    e("div", { className: "dialog-option-title" }, "Start Fresh"),
+    e("div", { className: "dialog-option-detail" }, "Train from scratch with a new model")
+  ));
+
+  // Option: Prior level best
+  if (priorBest) {
+    var pw = priorBest.world || "?";
+    var ps = priorBest.stage || "?";
+    children.push(e("div", {
+      key: "prior", className: "dialog-option" + (selected === "prior" ? " selected" : ""),
+      onClick: function() { setSelected("prior"); setSelectedCp(priorBest.name); }
+    },
+      e("div", { className: "dialog-option-title" },
+        "Continue from W" + pw + "-" + ps + " Best",
+        e("span", { className: "dialog-option-badge" }, "\u2605 RECOMMENDED")
+      ),
+      e("div", { className: "dialog-option-detail" },
+        priorBest.name + ".zip"),
+      e("div", { className: "dialog-option-detail" },
+        "Reward: " + formatReward(priorBest.avg_reward) + "  |  X: " + formatX(priorBest.max_x_pos))
+    ));
+  }
+
+  // Option: Resume same-level checkpoints
+  if (sameLevelCps.length > 0) {
+    children.push(e("div", { key: "resume-label", className: "dialog-section-label" },
+      "Resume W" + world + "-" + stage + " Training"));
+    sameLevelCps.slice(0, 3).forEach(function(cp, i) {
+      children.push(e("div", {
+        key: "resume-" + i,
+        className: "dialog-option" + (selected === "resume" && selectedCp === cp.name ? " selected" : ""),
+        onClick: function() { setSelected("resume"); setSelectedCp(cp.name); }
+      },
+        e("div", { className: "dialog-option-title" },
+          cp.name + ".zip",
+          cp.is_best && e("span", { className: "dialog-option-badge" }, "BEST")
+        ),
+        e("div", { className: "dialog-option-detail" },
+          "Reward: " + formatReward(cp.avg_reward) + "  |  X: " + formatX(cp.max_x_pos) +
+          (cp.timestep ? "  |  Steps: " + Number(cp.timestep).toLocaleString() : ""))
+      ));
+    });
+  }
+
+  // Option: Other checkpoints (expandable)
+  if (otherCps.length > 0) {
+    children.push(e("div", {
+      key: "other-label", className: "dialog-section-label",
+      style: { cursor: "pointer" },
+      onClick: function() { setShowOther(!showOther); }
+    }, (showOther ? "\u25BC" : "\u25B6") + " Other Checkpoints (" + otherCps.length + ")"));
+
+    if (showOther) {
+      otherCps.slice(0, 5).forEach(function(cp, i) {
+        var cpw = cp.world || "?";
+        var cps = cp.stage || "?";
+        children.push(e("div", {
+          key: "other-" + i,
+          className: "dialog-option" + (selected === "other" && selectedCp === cp.name ? " selected" : ""),
+          onClick: function() { setSelected("other"); setSelectedCp(cp.name); }
+        },
+          e("div", { className: "dialog-option-title" },
+            cp.name + ".zip",
+            e("span", { style: { fontSize: "9px", color: "var(--text-dim)", marginLeft: "6px" } },
+              "W" + cpw + "-" + cps)
+          ),
+          e("div", { className: "dialog-option-detail" },
+            "Reward: " + formatReward(cp.avg_reward) + "  |  X: " + formatX(cp.max_x_pos))
+        ));
+      });
+    }
+  }
+
+  // Actions
+  children.push(e("div", { key: "actions", className: "dialog-actions" },
+    e("button", { className: "btn btn-stop", onClick: onClose, style: { background: "var(--border)" } }, "CANCEL"),
+    e("button", {
+      className: "btn btn-start",
+      disabled: starting,
+      onClick: handleStart,
+    }, starting ? "STARTING..." : "START TRAINING")
+  ));
+
+  return e("div", { className: "dialog-overlay", onClick: onClose },
+    e("div", { className: "dialog-box", onClick: function(ev) { ev.stopPropagation(); } },
+      e("div", { className: "dialog-title" }, "TRAIN W" + world + "-" + stage),
+      e("div", { className: "dialog-subtitle" }, "How do you want to start?"),
+      children
+    )
+  );
+}
+
 function LevelProgressionPanel(props) {
   var levels = props.levels || [];
   var currentWorld = props.currentWorld;
@@ -1445,23 +1762,8 @@ function CheckpointsPanel(props) {
     .catch(function() { setSaving(false); });
   }
 
-  function loadCheckpoint(name) {
-    if (!confirm("Start training from checkpoint: " + name + "?")) return;
-    var p = Object.assign({}, props.params, { checkpoint_path: "checkpoints/" + name });
-    fetch("/api/training/start", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(p),
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data.status === "ok") {
-        if (props.onTrainingStarted) props.onTrainingStarted(data.device);
-      } else {
-        alert(data.message);
-      }
-    })
-    .catch(function(err) { alert("Failed: " + err); });
+  function selectCheckpoint(cp) {
+    if (props.onSelectCheckpoint) props.onSelectCheckpoint(cp);
   }
 
   return e("div", { className: "checkpoints-panel" },
@@ -1488,7 +1790,8 @@ function CheckpointsPanel(props) {
           if (cp.max_x_pos != null) meta.push("max_x: " + cp.max_x_pos);
           if (cp.type) meta.push(cp.type);
           var levelBadge = (cp.world && cp.stage) ? e("span", { className: "level-badge" }, "W" + cp.world + "-" + cp.stage) : null;
-          return e("div", { key: cp.name, className: "checkpoint-row" + (cp.is_best ? " is-best" : "") },
+          var isSelected = props.selectedCheckpoint && props.selectedCheckpoint.name === cp.name;
+          return e("div", { key: cp.name, className: "checkpoint-row" + (cp.is_best ? " is-best" : "") + (isSelected ? " selected-cp" : "") },
             e("div", null,
               e("div", { className: "checkpoint-name" },
                 (cp.is_best ? "\u2605 " : "") + cp.name, levelBadge
@@ -1497,9 +1800,9 @@ function CheckpointsPanel(props) {
             ),
             e("div", { className: "checkpoint-actions" },
               !props.isTraining && e("button", {
-                className: "btn btn-small badge-blue",
-                onClick: function() { loadCheckpoint(cp.name); }
-              }, "LOAD")
+                className: "btn btn-small " + (isSelected ? "badge-gold" : "badge-blue"),
+                onClick: function() { selectCheckpoint(cp); }
+              }, isSelected ? "\u2713 SELECTED" : "SELECT")
             )
           );
         })
@@ -1631,7 +1934,8 @@ function MainContent(props) {
       isTraining: props.isTraining,
       params: props.params,
       onRefresh: props.onRefreshCheckpoints,
-      onTrainingStarted: props.onTrainingStarted,
+      selectedCheckpoint: props.selectedCheckpoint,
+      onSelectCheckpoint: props.onSelectCheckpoint,
     }),
     e(LogConsole, { logs: props.logs })
   );
@@ -1647,10 +1951,11 @@ function App() {
   var _s6 = useState([]); var logs = _s6[0]; var setLogs = _s6[1];
   var _s7 = useState([]); var replays = _s7[0]; var setReplays = _s7[1];
   var _s10 = useState([]); var checkpoints = _s10[0]; var setCheckpoints = _s10[1];
-  var _s11 = useState(null); var lastCheckpoint = _s11[0]; var setLastCheckpoint = _s11[1];
+  var _s11 = useState(null); var selectedCheckpoint = _s11[0]; var setSelectedCheckpoint = _s11[1];
   var _s12 = useState(null); var evalMetrics = _s12[0]; var setEvalMetrics = _s12[1];
   var _s13 = useState([]); var levels = _s13[0]; var setLevels = _s13[1];
-  var lastCheckpointRef = useRef(null);
+  var selectedCheckpointRef = useRef(null);
+  var _sd = useState(null); var dialogLevel = _sd[0]; var setDialogLevel = _sd[1];
 
   // Default params
   var defaultParams = {};
@@ -1701,14 +2006,14 @@ function App() {
         var cps = data.checkpoints || [];
         setCheckpoints(cps);
         // Auto-detect a resumable checkpoint if we don't have one yet
-        if (!lastCheckpointRef.current && cps.length > 0) {
+        if (!selectedCheckpointRef.current && cps.length > 0) {
           // Prefer autosave, then best, then most recent
           var auto = cps.find(function(c) { return c.name && c.name.indexOf("autosave") !== -1; });
           var best = cps.find(function(c) { return c.is_best; });
           var pick = auto || best || cps[0];
           if (pick) {
-            setLastCheckpoint(pick.name);
-            lastCheckpointRef.current = pick.name;
+            setSelectedCheckpoint(pick);
+            selectedCheckpointRef.current = pick;
           }
         }
       })
@@ -1783,6 +2088,13 @@ function App() {
         if (playHandlerRef.current) {
           playHandlerRef.current(msg);
         }
+      } else if (msg.type === "training_error") {
+        setIsTraining(false);
+        setLogs(function(prev) {
+          var next = prev.concat(["ERROR: " + msg.error]);
+          if (next.length > 200) next = next.slice(-200);
+          return next;
+        });
       }
     };
 
@@ -1808,58 +2120,13 @@ function App() {
   }, []);
 
   function onStart() {
-    setLogs(function(prev) { return prev.concat(["[--:--:--] Starting training..."]); });
-    fetch("/api/training/start", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(params),
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data.status === "ok") {
-        setIsTraining(true);
-        setDevice(data.device || device);
-        metricsRef.current = [];
-        setMetrics([]);
-      } else {
-        alert(data.message);
-      }
-    })
-    .catch(function(err) { alert("Failed to start: " + err); });
-  }
-
-  function onStop() {
-    // Save a snapshot before stopping so we can resume later
-    fetch("/api/snapshots/save", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "autosave" }),
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data.status === "ok" && data.filename) {
-        setLastCheckpoint(data.filename);
-        lastCheckpointRef.current = data.filename;
-      }
-    })
-    .catch(function() {});
-
-    fetch("/api/training/stop", { method: "POST" })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data.status === "ok") {
-        setIsTraining(false);
-        refreshCheckpoints();
-      }
-    })
-    .catch(function(err) { alert("Failed to stop: " + err); });
-  }
-
-  function onResume() {
-    setLogs(function(prev) { return prev.concat(["[--:--:--] Resuming training..."]); });
-    var cp = lastCheckpoint;
-    if (!cp) return;
-    var p = Object.assign({}, params, { checkpoint_path: "checkpoints/" + cp });
+    var cp = selectedCheckpoint;
+    var label = cp ? "Resuming from " + cp.name + "..." : "Starting fresh training...";
+    setLogs(function(prev) { return prev.concat(["[--:--:--] " + label]); });
+    var p = Object.assign({}, params);
+    if (cp) {
+      p.checkpoint_path = "checkpoints/" + cp.name;
+    }
     fetch("/api/training/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1877,7 +2144,36 @@ function App() {
         alert(data.message);
       }
     })
-    .catch(function(err) { alert("Failed to resume: " + err); });
+    .catch(function(err) { alert("Failed to start: " + err); });
+  }
+
+  function onStop() {
+    // Save a snapshot before stopping so we can resume later
+    fetch("/api/snapshots/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "autosave" }),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status === "ok" && data.filename) {
+        // Set the autosave as the selected checkpoint
+        var cpObj = { name: data.filename, world: params.world, stage: params.stage, is_best: false };
+        setSelectedCheckpoint(cpObj);
+        selectedCheckpointRef.current = cpObj;
+      }
+    })
+    .catch(function() {});
+
+    fetch("/api/training/stop", { method: "POST" })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status === "ok") {
+        setIsTraining(false);
+        refreshCheckpoints();
+      }
+    })
+    .catch(function(err) { alert("Failed to stop: " + err); });
   }
 
   function onParamChange(key, value) {
@@ -1908,8 +2204,14 @@ function App() {
         onParamChange: onParamChange,
         onStart: onStart,
         onStop: onStop,
-        onResume: onResume,
-        lastCheckpoint: lastCheckpoint,
+        selectedCheckpoint: selectedCheckpoint,
+        onClearCheckpoint: function() {
+          setSelectedCheckpoint(null);
+          selectedCheckpointRef.current = null;
+        },
+        onOpenLevelDialog: function(w, s) {
+          setDialogLevel({ world: w, stage: s });
+        },
         currentTimestep: metrics.length > 0 ? metrics[metrics.length - 1].timestep : 0,
         totalTimesteps: metrics.length > 0 ? metrics[metrics.length - 1].total_timesteps : 0,
       }),
@@ -1926,24 +2228,40 @@ function App() {
         setReplayHandler: setReplayHandler,
         setPlayHandler: setPlayHandler,
         onRefreshCheckpoints: refreshCheckpoints,
-        onTrainingStarted: function(dev) {
+        selectedCheckpoint: selectedCheckpoint,
+        onSelectCheckpoint: function(cp) {
+          setSelectedCheckpoint(cp);
+          selectedCheckpointRef.current = cp;
+        },
+        onSelectLevel: function(w, s) {
+          setDialogLevel({ world: w, stage: s });
+        },
+        onNextLevel: function(w, s) {
+          setDialogLevel({ world: w, stage: s });
+        },
+      }),
+      dialogLevel && e(StartTrainingDialog, {
+        world: dialogLevel.world,
+        stage: dialogLevel.stage,
+        isTraining: isTraining,
+        params: params,
+        onClose: function() { setDialogLevel(null); },
+        onStartTraining: function(dev, w, s, cpObj) {
           setIsTraining(true);
           setDevice(dev || device);
           metricsRef.current = [];
           setMetrics([]);
           setEvalMetrics(null);
-        },
-        onSelectLevel: function(w, s) {
           onParamChange("world", w);
           onParamChange("stage", s);
-        },
-        onNextLevel: function(w, s) {
-          // Stop current training, set level, suggest loading best checkpoint
-          onStop();
-          setTimeout(function() {
-            onParamChange("world", w);
-            onParamChange("stage", s);
-          }, 500);
+          if (cpObj) {
+            setSelectedCheckpoint(cpObj);
+            selectedCheckpointRef.current = cpObj;
+          } else {
+            setSelectedCheckpoint(null);
+            selectedCheckpointRef.current = null;
+          }
+          refreshCheckpoints();
         },
       })
     )
