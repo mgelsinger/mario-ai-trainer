@@ -31,7 +31,7 @@
 
 ```bash
 # 1. Clone
-git clone https://github.com/YOUR_USERNAME/mario-ai-trainer.git
+git clone https://github.com/mgelsinger/mario-ai-trainer.git
 cd mario-ai-trainer
 
 # 2. Setup (auto-detects GPU, installs everything)
