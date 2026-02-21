@@ -52,11 +52,6 @@ From clone to training in under 5 minutes.
 
 ## Dashboard Overview
 
-<!-- Replace with an annotated screenshot of your dashboard -->
-<p align="center">
-  <img src="screenshots/dashboard-annotated.png" alt="Dashboard Overview" width="800">
-</p>
-
 | Panel | What it shows |
 |-------|--------------|
 | **System Health** | GPU model, VRAM usage, CUDA version, CPU/RAM stats |
